@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  max-width: 100vw;
+  margin: 0;
+  padding: 0;
+  /* clip prevents horizontal scroll without creating a scroll container,
+     which means position:fixed children remain fixed to the viewport on iOS */
+  overflow-x: clip;
+}
+
+section {
+  scroll-margin-top: 130px; /* Offset to align nicely below the sticky composite headers */
+}
+
+@theme {
+  --animate-spin-slow: spinSlow 18s linear infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Base custom classes to provide smooth fade-ins */
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

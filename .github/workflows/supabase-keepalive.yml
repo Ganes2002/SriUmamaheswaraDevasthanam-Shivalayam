@@ -1,0 +1,27 @@
+name: Supabase Keep-Alive
+
+# Supabase free tier pauses projects after 7 days of inactivity.
+# This workflow pings the Supabase REST API every 3 days to keep
+# the Sri Umamaheswara Devasthanam project active at zero cost.
+
+on:
+  schedule:
+    - cron: '0 8 */3 * *'   # Every 3 days at 8:00 AM UTC (well within the 7-day limit)
+  workflow_dispatch:          # Also allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/global_settings?select=key&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "Supabase ping status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Warning: Expected 200, got $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Supabase project is active and healthy."
