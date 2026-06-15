@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TRANSLATIONS, Language } from '../translations';
 import { GalleryItem } from '../types';
-import { Eye, Film, Play, Image as ImageIcon, Video, X } from 'lucide-react';
+import { Eye, Film, Play, Image as ImageIcon, Video, X, Download } from 'lucide-react';
 
 interface GallerySectionProps {
   language: Language;
@@ -11,7 +11,38 @@ interface GallerySectionProps {
 export default function GallerySection({ language, galleryList }: GallerySectionProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'images' | 'videos'>('all');
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+  // title = display label (EN or TE), titleEN = always English for safe download filename
+  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; title: string; titleEN: string } | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPhoto = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedPhoto) return;
+    setIsDownloading(true);
+    // Always use English title for filename — Telugu/non-ASCII chars break file names
+    const safeName = selectedPhoto.titleEN
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim()
+      .replace(/\s+/g, '_') || 'temple-photo';
+    try {
+      const response = await fetch(selectedPhoto.url);
+      const blob = await response.blob();
+      const ext = blob.type === 'image/png' ? '.png' : blob.type === 'image/webp' ? '.webp' : '.jpg';
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${safeName}${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // CORS-blocked URL (e.g. old Unsplash links) — open in new tab so user can save manually
+      window.open(selectedPhoto.url, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const t = (key: string) => {
     return TRANSLATIONS[key]?.[language] || key;
@@ -142,10 +173,10 @@ export default function GallerySection({ language, galleryList }: GallerySection
               } else {
                 // Image item
                 return (
-                  <div 
+                  <div
                     key={item.id}
                     id={`gallery-${item.id}`}
-                    onClick={() => setSelectedPhotoUrl(item.url)}
+                    onClick={() => setSelectedPhoto({ url: item.url, title: itemTitle, titleEN: item.titleEN })}
                     className="relative cursor-pointer aspect-square rounded-2xl overflow-hidden bg-stone-100 group border border-amber-100 shadow-sm hover:shadow-xl transition-all"
                   >
                     <img 
@@ -207,25 +238,53 @@ export default function GallerySection({ language, galleryList }: GallerySection
         </div>
       )}
 
-      {/* Image Zoom Zoom Overlay Modal */}
-      {selectedPhotoUrl && (
-        <div 
+      {/* Image Zoom Overlay Modal */}
+      {selectedPhoto && (
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in cursor-zoom-out"
-          onClick={() => setSelectedPhotoUrl(null)}
+          onClick={() => setSelectedPhoto(null)}
         >
-          <div className="relative max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border-2 border-amber-400">
-            <button
-              onClick={() => setSelectedPhotoUrl(null)}
-              className="absolute top-4 right-4 z-10 rounded-full bg-black/70 p-2 text-white hover:bg-black transition-all cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-            <img 
-              src={selectedPhotoUrl} 
-              alt="Zoomed Preview" 
+          <div
+            className="relative max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border-2 border-amber-400"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Action buttons — top-right corner */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              {/* Download button */}
+              <button
+                onClick={handleDownloadPhoto}
+                disabled={isDownloading}
+                title={language === 'EN' ? 'Download photo' : 'ఫోటో డౌన్‌లోడ్ చేయండి'}
+                className="rounded-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 p-2 text-stone-950 shadow-lg transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5 px-3"
+              >
+                <Download size={16} strokeWidth={2.5} />
+                <span className="text-[11px] font-bold hidden sm:inline">
+                  {isDownloading
+                    ? (language === 'EN' ? 'Saving...' : 'సేవ్ అవుతోంది...')
+                    : (language === 'EN' ? 'Download' : 'డౌన్‌లోడ్')}
+                </span>
+              </button>
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                title={language === 'EN' ? 'Close' : 'మూసివేయి'}
+                className="rounded-full bg-black/70 hover:bg-black p-2 text-white transition-all cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <img
+              src={selectedPhoto.url}
+              alt={selectedPhoto.title}
               referrerPolicy="no-referrer"
               className="w-full max-h-[85vh] object-contain"
             />
+
+            {/* Photo title bar at the bottom */}
+            <div className="absolute bottom-0 inset-x-0 bg-black/70 backdrop-blur-sm px-4 py-2 text-center">
+              <p className="font-serif text-xs sm:text-sm font-bold text-amber-300 truncate">{selectedPhoto.title}</p>
+            </div>
           </div>
         </div>
       )}

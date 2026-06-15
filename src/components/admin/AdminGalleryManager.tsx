@@ -32,6 +32,7 @@ export default function AdminGalleryManager({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log(`[Gallery] File selected → name="${file.name}" size=${(file.size / 1024).toFixed(1)} KB type="${file.type}"`);
     setMediaUploadError('');
     setMediaUploadStatus('');
 
@@ -45,10 +46,13 @@ export default function AdminGalleryManager({
     setIsUploading(true);
     setMediaUploadStatus(language === 'EN' ? 'Compressing & uploading to temple storage...' : 'చిత్రం కుదించి అప్‌లోడ్ అవుతోంది...');
 
+    const totalStart = performance.now();
     const reader = new FileReader();
     reader.onload = (event) => {
+      console.log(`[Gallery] FileReader done → starting canvas decode`);
       const img = new Image();
       img.onload = () => {
+        console.log(`[Gallery] Image decoded → original size ${img.width}×${img.height}`);
         const canvas = document.createElement('canvas');
         let { width, height } = img;
         const maxDim = 1200;
@@ -62,27 +66,34 @@ export default function AdminGalleryManager({
         const ctx = canvas.getContext('2d');
         if (!ctx) { setIsUploading(false); return; }
         ctx.drawImage(img, 0, 0, width, height);
+        console.log(`[Gallery] Canvas drawn → output size ${width}×${height}, calling toBlob(jpeg, 0.75)`);
 
         canvas.toBlob(async (blob) => {
           if (!blob) {
+            console.error('[Gallery] toBlob returned null');
             setIsUploading(false);
             setMediaUploadError(language === 'EN' ? 'Image processing failed.' : 'చిత్రం ప్రక్రియ విఫలమైంది.');
             return;
           }
+          console.log(`[Gallery] Blob ready → compressed size ${(blob.size / 1024).toFixed(1)} KB`);
           const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
           const url = await uploadImageToStorage(blob, 'gallery', `${Date.now()}-${safeName}`);
           setIsUploading(false);
           if (url) {
+            console.log(`[Gallery] ✓ Total time: ${(performance.now() - totalStart).toFixed(0)}ms`);
             setMediaUrl(url);
             setMediaUploadStatus(t('imageUploadedSuccess'));
             addLog(`Uploaded photo "${file.name}" to temple media storage.`, 'gallery');
           } else {
-            setMediaUploadError(language === 'EN' ? 'Upload failed. Check your internet and try again.' : 'అప్‌లోడ్ విఫలమైంది. మళ్ళీ ప్రయత్నించండి.');
+            console.error('[Gallery] ✗ uploadImageToStorage returned null — check Supabase Storage bucket setup');
+            setMediaUploadError(language === 'EN' ? 'Upload failed. Open browser console (F12) for the exact error.' : 'అప్‌లోడ్ విఫలమైంది. F12 కన్సోల్ తెరిచి చూడండి.');
           }
         }, 'image/jpeg', 0.75);
       };
+      img.onerror = () => console.error('[Gallery] Image failed to decode — unsupported format?');
       img.src = event.target?.result as string;
     };
+    reader.onerror = () => console.error('[Gallery] FileReader error');
     reader.readAsDataURL(file);
   };
 

@@ -151,10 +151,11 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 -- PART D: SEED ALL DATA
 -- ═══════════════════════════════════════════════════════════════
 
--- 1. Global Settings (temple emblem URL + lifetime counter)
+-- 1. Global Settings (temple emblem URL + lifetime counter + whatsapp link)
 INSERT INTO global_settings (key, value, updated_at) VALUES
 ('primary_temple_emblem', 'https://images.unsplash.com/photo-1600100397759-db2427a810f6?auto=format&fit=crop&q=80&w=600', NOW()),
-('lifetime_counter',      '2852500', NOW())
+('lifetime_counter',      '2852500', NOW()),
+('whatsapp_link',         '', NOW())
 ON CONFLICT (key) DO NOTHING;
 
 
@@ -303,7 +304,42 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ═══════════════════════════════════════════════════════════════
--- PART E: VERIFY SETUP (run these SELECT queries separately)
+-- PART E: SUPABASE STORAGE BUCKET SETUP
+-- CRITICAL: Run this section to enable image uploads in the app.
+-- Without this, carousel/gallery/profile photo uploads will fail.
+-- ═══════════════════════════════════════════════════════════════
+
+-- Create the temple-media bucket (public = anyone can read uploaded images)
+-- file_size_limit: 100 MB in bytes
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('temple-media', 'temple-media', true, 104857600)
+ON CONFLICT (id) DO UPDATE SET
+  public          = true,
+  file_size_limit = 104857600;
+
+-- Allow public read of all files in the bucket (needed to display images)
+DROP POLICY IF EXISTS "temple_media_read"   ON storage.objects;
+CREATE POLICY "temple_media_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'temple-media');
+
+-- Allow anyone (anon role) to upload images into the bucket
+DROP POLICY IF EXISTS "temple_media_insert" ON storage.objects;
+CREATE POLICY "temple_media_insert" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'temple-media');
+
+-- Allow updating existing objects (used by upsert:true in upload calls)
+DROP POLICY IF EXISTS "temple_media_update" ON storage.objects;
+CREATE POLICY "temple_media_update" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'temple-media');
+
+-- Allow deletion of objects (used when carousel slots are replaced or removed)
+DROP POLICY IF EXISTS "temple_media_delete" ON storage.objects;
+CREATE POLICY "temple_media_delete" ON storage.objects
+  FOR DELETE USING (bucket_id = 'temple-media');
+
+
+-- ═══════════════════════════════════════════════════════════════
+-- PART F: VERIFY SETUP (run these SELECT queries separately)
 -- ═══════════════════════════════════════════════════════════════
 -- SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
 -- -- Expected: rowsecurity = false for all 9 tables
@@ -313,7 +349,8 @@ ON CONFLICT (id) DO NOTHING;
 -- SELECT COUNT(*) FROM gallery_assets;     -- Expected: 6
 -- SELECT COUNT(*) FROM donor_ledger;       -- Expected: 10
 -- SELECT COUNT(*) FROM yearly_audits;      -- Expected: 7
--- SELECT * FROM global_settings;           -- Expected: 2 rows
+-- SELECT * FROM global_settings;           -- Expected: 3 rows (emblem, counter, whatsapp_link)
+-- SELECT id, name, public FROM storage.buckets; -- Expected: temple-media, public=true
 -- =========================================================================
 -- END OF COMPLETE SETUP SCRIPT
 -- =========================================================================

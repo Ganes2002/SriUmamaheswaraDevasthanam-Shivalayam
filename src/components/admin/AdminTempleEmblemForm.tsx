@@ -67,6 +67,7 @@ export default function AdminTempleEmblemForm({
     onResult: (url: string) => void,
     setUploading: (v: boolean) => void
   ): Promise<void> => {
+    console.log(`[Carousel] File selected → name="${file.name}" size=${(file.size / 1024).toFixed(1)} KB type="${file.type}"`);
     if (file.size > 100 * 1024 * 1024) {
       setErrorText(
         language === 'EN'
@@ -78,11 +79,14 @@ export default function AdminTempleEmblemForm({
     setUploading(true);
     setErrorText('');
 
+    const totalStart = performance.now();
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
+      console.log(`[Carousel] FileReader done → starting canvas decode`);
+      const img = new window.Image();
       img.src = event.target?.result as string;
       img.onload = () => {
+        console.log(`[Carousel] Image decoded → original size ${img.width}×${img.height}`);
         const canvas = document.createElement('canvas');
         let { width, height } = img;
         const MAX_DIM = 800;
@@ -95,23 +99,29 @@ export default function AdminTempleEmblemForm({
         const ctx = canvas.getContext('2d');
         if (!ctx) { setUploading(false); return; }
         ctx.drawImage(img, 0, 0, width, height);
+        console.log(`[Carousel] Canvas drawn → output size ${width}×${height}, calling toBlob(jpeg, 0.7)`);
         canvas.toBlob(async (blob) => {
-          if (!blob) { setUploading(false); return; }
+          if (!blob) { console.error('[Carousel] toBlob returned null'); setUploading(false); return; }
+          console.log(`[Carousel] Blob ready → compressed size ${(blob.size / 1024).toFixed(1)} KB`);
           const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
           const url = await uploadImageToStorage(blob, folder, `${Date.now()}-${safeName}`);
           setUploading(false);
           if (url) {
+            console.log(`[Carousel] ✓ Total time: ${(performance.now() - totalStart).toFixed(0)}ms`);
             onResult(url);
           } else {
+            console.error('[Carousel] ✗ uploadImageToStorage returned null — check Supabase Storage bucket setup');
             setErrorText(
               language === 'EN'
-                ? 'Upload failed. Check your internet and try again.'
-                : 'అప్‌లోడ్ విఫలమైంది. మళ్ళీ ప్రయత్నించండి.'
+                ? 'Upload failed. Open browser console (F12) for the exact error.'
+                : 'అప్‌లోడ్ విఫలమైంది. F12 కన్సోల్ తెరిచి చూడండి.'
             );
           }
         }, 'image/jpeg', 0.7);
       };
+      img.onerror = () => console.error('[Carousel] Image failed to decode — unsupported format?');
     };
+    reader.onerror = () => console.error('[Carousel] FileReader error');
     reader.readAsDataURL(file);
   };
 
@@ -130,7 +140,7 @@ export default function AdminTempleEmblemForm({
     if (e) e.preventDefault();
     if (!selectedSlotId || !activeSlot) return;
     if (!editUrl.trim()) {
-      setErrorText(language === 'EN' ? 'Please input a valid image URL first.' : 'దయచేసి ఒక సరైన చిత్ర చిరునామాను నమోదు చేయండి.');
+      setErrorText(language === 'EN' ? 'Please upload an image file first.' : 'దయచేసి ముందు చిత్రం ఫైల్ అప్‌లోడ్ చేయండి.');
       return;
     }
     if (!editNameEN.trim() || !editNameTE.trim()) {
@@ -171,7 +181,7 @@ export default function AdminTempleEmblemForm({
       return;
     }
     if (!newUrl.trim()) {
-      setErrorText(language === 'EN' ? 'Please upload an image or paste a URL.' : 'దయచేసి చిత్రం అప్‌లోడ్ చెయ్యండి లేదా వెబ్ లింక్ ఇవ్వండి.');
+      setErrorText(language === 'EN' ? 'Please upload an image file first.' : 'దయచేసి ముందు చిత్రం ఫైల్ అప్‌లోడ్ చేయండి.');
       return;
     }
     if (!newNameEN.trim() || !newNameTE.trim()) {
@@ -341,12 +351,6 @@ export default function AdminTempleEmblemForm({
                 )}
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-stone-600 uppercase">{language === 'EN' ? 'Or paste Direct Image URL:' : 'లేదా వెబ్ ఇమేజ్ అడ్రస్ లింక్ ఇవ్వండి:'}</label>
-                <input type="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://example.com/shiva.jpg"
-                  className="w-full text-xs font-mono rounded-xl border border-stone-300 px-3 py-2 bg-white text-stone-800 focus:outline-none focus:border-amber-500" />
-              </div>
-
               <button type="submit" disabled={newUploading}
                 className="w-full py-2 px-4 bg-[#7A1E1E] hover:bg-[#5E1414] text-white text-xs font-bold rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                 <Plus size={14} strokeWidth={2.5} />
@@ -392,12 +396,6 @@ export default function AdminTempleEmblemForm({
                   <><Upload size={18} className="text-[#7A1E1E] animate-bounce mb-0.5" /><span className="text-xs font-bold text-[#7A1E1E]">{language === 'EN' ? 'Replace image file' : 'ఈ చిత్రాన్ని మార్చండి'}</span>
                   <p className="text-[9px] text-stone-400">{language === 'EN' ? 'Auto compressed & stored in CDN.' : 'ఆటో కంప్రెస్ చేసి CDNలో భద్రపరచబడుతుంది.'}</p></>
                 )}
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-stone-600 uppercase">{language === 'EN' ? 'Or paste Direct Image URL:' : 'లేదా వెబ్ ఇమేజ్ అడ్రస్ లింక్:'}</label>
-                <input type="url" value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://example.com/lord-shiva.jpg"
-                  className="w-full text-xs font-mono rounded-xl border border-stone-300 px-3 py-2 bg-white text-stone-800 focus:outline-none focus:border-amber-500" />
               </div>
 
               <div className="flex gap-2">

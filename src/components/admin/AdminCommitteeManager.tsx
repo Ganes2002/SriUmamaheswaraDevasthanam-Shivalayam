@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Users, Edit, Trash2, Phone, Mail, UserPlus, Camera } from 'lucide-react';
+import { Users, Edit, Trash2, Phone, Mail, UserPlus, Camera, Loader2 } from 'lucide-react';
 import { Language } from '../../translations';
 import { CommitteeMember } from '../../types';
-import { addLog } from '../../db';
+import { addLog, uploadImageToStorage } from '../../db';
 import { showToast } from '../Toast';
 
 interface AdminCommitteeManagerProps {
@@ -33,9 +33,11 @@ export default function AdminCommitteeManager({
   const [commUsername, setCommUsername] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const compressAndSetProfileImage = (file: File) => {
     if (!file) return;
+    console.log(`[Profile] File selected → name="${file.name}" size=${(file.size / 1024).toFixed(1)} KB type="${file.type}"`);
     if (file.size > 2 * 1024 * 1024) {
       showToast(language === 'EN'
         ? "Selected image is too large! Please select an image under 2MB."
@@ -43,40 +45,59 @@ export default function AdminCommitteeManager({
       return;
     }
 
+    setIsUploadingImage(true);
+    const totalStart = performance.now();
     const reader = new FileReader();
     reader.onload = (event) => {
+      console.log(`[Profile] FileReader done → starting canvas decode`);
       const originalResult = event.target?.result as string;
-      if (!originalResult) return;
+      if (!originalResult) { setIsUploadingImage(false); return; }
 
       const img = new window.Image();
       img.src = originalResult;
       img.onload = () => {
+        console.log(`[Profile] Image decoded → original size ${img.width}×${img.height}`);
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-
-        // Force maximum bounds for speedy storage loading (Profile photo can be small: 160x160)
-        const MAX_DIM = 160;
+        const MAX_DIM = 200;
         if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
+          if (width > height) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; }
+          else { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-          setCommImageUrl(compressedBase64);
-        }
+        if (!ctx) { setIsUploadingImage(false); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        console.log(`[Profile] Canvas drawn → output size ${width}×${height}, calling toBlob(jpeg, 0.85)`);
+        canvas.toBlob(async (blob) => {
+          if (!blob) { console.error('[Profile] toBlob returned null'); setIsUploadingImage(false); return; }
+          console.log(`[Profile] Blob ready → compressed size ${(blob.size / 1024).toFixed(1)} KB`);
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const url = await uploadImageToStorage(blob, 'profile', `${Date.now()}-${safeName}`);
+          setIsUploadingImage(false);
+          if (url) {
+            console.log(`[Profile] ✓ Total time: ${(performance.now() - totalStart).toFixed(0)}ms`);
+            setCommImageUrl(url);
+            showToast(
+              language === 'EN' ? 'Profile photo uploaded successfully!' : 'ప్రొఫైల్ ఫోటో అప్‌లోడ్ అయింది!',
+              'success'
+            );
+          } else {
+            console.error('[Profile] ✗ uploadImageToStorage returned null — check Supabase Storage bucket setup');
+            showToast(
+              language === 'EN'
+                ? 'Upload failed. Open browser console (F12) for the exact error.'
+                : 'అప్‌లోడ్ విఫలమైంది. F12 కన్సోల్ తెరిచి చూడండి.',
+              'error'
+            );
+          }
+        }, 'image/jpeg', 0.85);
       };
+      img.onerror = () => console.error('[Profile] Image failed to decode — unsupported format?');
     };
+    reader.onerror = () => console.error('[Profile] FileReader error');
     reader.readAsDataURL(file);
   };
 
@@ -375,51 +396,45 @@ export default function AdminCommitteeManager({
               />
             </div>
 
-            {/* Image Upload and/or URL option for high flexibility */}
-            <div className="md:col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-dashed border-stone-200/60 pt-4 mt-2">
-              <div>
-                <label className="block text-xs text-stone-700 font-bold mb-1">
-                  {language === 'EN' ? "Option A: Upload Profile Image" : "ఆప్షన్ A: ప్రొఫైల్ ఫోటో అప్‌లోడ్ చెయ్యండి"}
-                </label>
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border border-dashed border-stone-300 hover:border-[#7A1E1E] rounded-xl p-3 text-center cursor-pointer bg-white hover:bg-stone-50 transition flex flex-col items-center justify-center space-y-1 h-20 select-none"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        compressAndSetProfileImage(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <div className="flex items-center space-x-1 font-serif text-xs font-bold text-[#7A1E1E]">
-                    <Camera size={14} />
-                    <span>{language === 'EN' ? "Select Image File" : "ఫోటో ఫైలును ఎంచుకోండి"}</span>
-                  </div>
-                  <p className="text-[10px] text-stone-400">
-                    {commImageUrl && commImageUrl.startsWith('data:image') 
-                      ? (language === 'EN' ? "✓ Profile photo uploaded" : "✓ ఫోటో అప్‌లోడ్ అయింది") 
-                      : (language === 'EN' ? "Auto compressed (Max 2MB)" : "ఆటోమాటిగ్గా కంప్రెస్ అవుతుంది")}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="commImageUrlInput" className="block text-xs text-stone-700 font-bold mb-1">
-                  {language === 'EN' ? "Option B: Or paste direct Image URL:" : "ఆప్షన్ B: లేదా చిత్రం వెబ్ అడ్రస్ ఇక్కడ రాయండి:"}
-                </label>
-                <textarea
-                  id="commImageUrlInput"
-                  rows={2}
-                  placeholder="https://images.unsplash.com/..."
-                  value={commImageUrl}
-                  onChange={(e) => setCommImageUrl(e.target.value)}
-                  className="w-full text-xs rounded-xl border border-stone-300 px-3 py-1.5 text-stone-850 bg-[#FCFBF7] font-mono h-20 resize-none focus:outline-none focus:border-[#7A1E1E]"
+            {/* Profile image upload */}
+            <div className="md:col-span-4 border-t border-dashed border-stone-200/60 pt-4 mt-2">
+              <label className="block text-xs text-stone-700 font-bold mb-1">
+                {language === 'EN' ? "Profile Photo (Optional — Max 2 MB)" : "ప్రొఫైల్ ఫోటో (ఐచ్ఛికం — గరిష్టం 2 MB)"}
+              </label>
+              <div
+                onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                className={`border border-dashed rounded-xl p-3 text-center bg-white transition flex flex-col items-center justify-center space-y-1 h-20 select-none max-w-xs ${isUploadingImage ? 'cursor-not-allowed opacity-70 border-stone-200' : 'cursor-pointer hover:border-[#7A1E1E] hover:bg-stone-50 border-stone-300'}`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isUploadingImage}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      compressAndSetProfileImage(e.target.files[0]);
+                    }
+                  }}
                 />
+                {isUploadingImage ? (
+                  <>
+                    <Loader2 size={16} className="text-[#7A1E1E] animate-spin" />
+                    <p className="text-[10px] text-[#7A1E1E] font-bold">{language === 'EN' ? 'Uploading to CDN...' : 'అప్‌లోడ్ అవుతోంది...'}</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center space-x-1 font-serif text-xs font-bold text-[#7A1E1E]">
+                      <Camera size={14} />
+                      <span>{language === 'EN' ? "Click to select a photo" : "ఫోటో ఫైలును ఎంచుకోండి"}</span>
+                    </div>
+                    <p className="text-[10px] text-stone-400">
+                      {commImageUrl && commImageUrl.startsWith('https://')
+                        ? (language === 'EN' ? "✓ Photo ready — click to replace" : "✓ ఫోటో సిద్ధంగా ఉంది — మార్చాలంటే క్లిక్ చేయండి")
+                        : (language === 'EN' ? "Compressed & uploaded to CDN automatically" : "ఆటోమాటిగ్గా CDNకి అప్‌లోడ్ అవుతుంది")}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -427,9 +442,10 @@ export default function AdminCommitteeManager({
         </div>
 
         <div className="flex justify-end pt-2 border-t border-stone-150">
-          <button 
-            type="submit" 
-            className="flex items-center space-x-1.5 px-5 py-2.5 bg-[#7A1E1E] hover:bg-[#5E1414] text-white rounded-lg text-xs font-bold transition shadow cursor-pointer"
+          <button
+            type="submit"
+            disabled={isUploadingImage}
+            className="flex items-center space-x-1.5 px-5 py-2.5 bg-[#7A1E1E] hover:bg-[#5E1414] text-white rounded-lg text-xs font-bold transition shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {editCommitteeId ? <Edit size={13} /> : <UserPlus size={13} />}
             <span>

@@ -27,6 +27,7 @@ import AdminEventsManager from './admin/AdminEventsManager';
 import AdminCommitteeManager from './admin/AdminCommitteeManager';
 import AdminLogsViewer from './admin/AdminLogsViewer';
 import AdminTempleEmblemForm from './admin/AdminTempleEmblemForm';
+import AdminPanchangamEditor from './admin/AdminPanchangamEditor';
 
 interface AdminPanelProps {
   language: Language;
@@ -428,6 +429,9 @@ export default function AdminPanel({
               templeEmblemLibrary={templeEmblemLibrary}
               onUpdateTempleEmblemLibrary={onUpdateTempleEmblemLibrary}
             />
+
+            {/* Sub-component: Panchangam Editor & Override */}
+            <AdminPanchangamEditor language={language} />
 
             {/* Sub-component 1: Ticker Announcement Text Form */}
             <AdminAnnouncementForm

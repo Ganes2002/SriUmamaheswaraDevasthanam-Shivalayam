@@ -9,6 +9,7 @@ import {
   YearlyStat,
   AdminAccount,
   TempleEmblemSlot,
+  PanchangamDetails,
 } from './types';
 
 // ─── Supabase Storage Helpers ─────────────────────────────────────────────────
@@ -20,18 +21,22 @@ const STORAGE_BUCKET = 'temple-media';
 
 export async function uploadImageToStorage(
   blob: Blob,
-  folder: 'gallery' | 'carousel',
+  folder: 'gallery' | 'carousel' | 'profile' | 'events',
   filename: string
 ): Promise<string | null> {
   const filePath = `${folder}/${filename}`;
+  console.log(`[Upload] ▶ Starting Supabase Storage upload → bucket="${STORAGE_BUCKET}" path="${filePath}" size=${(blob.size / 1024).toFixed(1)} KB`);
+  const uploadStart = performance.now();
   const { error } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(filePath, blob, { contentType: 'image/jpeg', upsert: true });
+  const uploadMs = (performance.now() - uploadStart).toFixed(0);
   if (error) {
-    console.error('Storage upload error:', error.message);
+    console.error(`[Upload] ✗ Supabase Storage error after ${uploadMs}ms → code="${error.message}" details:`, error);
     return null;
   }
   const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+  console.log(`[Upload] ✓ Upload complete in ${uploadMs}ms → URL: ${data.publicUrl}`);
   return data.publicUrl;
 }
 
@@ -364,13 +369,17 @@ export async function getEvents(): Promise<EventItem[]> {
 }
 
 export async function saveEvents(list: EventItem[]): Promise<void> {
-  const { data: existing } = await supabase.from('events').select('id');
-  const existingIds = (existing || []).map((r) => r.id);
+  const { data: existing } = await supabase.from('events').select('id, image_url');
+  const existingMap = (existing || []).reduce<Record<string, string>>((acc, r) => {
+    if (r.image_url) acc[r.id] = r.image_url;
+    return acc;
+  }, {});
   const newIds = list.map((e) => e.id);
 
-  const toDelete = existingIds.filter((id) => !newIds.includes(id));
+  const toDelete = Object.keys(existingMap).filter((id) => !newIds.includes(id));
   if (toDelete.length > 0) {
     await supabase.from('events').delete().in('id', toDelete);
+    await Promise.all(toDelete.map((id) => deleteFromStorage(existingMap[id])));
   }
 
   if (list.length > 0) {
@@ -648,6 +657,48 @@ export async function saveAdminAccounts(list: AdminAccount[]): Promise<void> {
       .eq('id', acc.id);
   }
   cacheBust('committee');
+}
+
+// ─── Panchangam Cache ─────────────────────────────────────────────────────────
+// The Edge Function writes here after calling Prokerala so subsequent visitors
+// for the same date are served from DB (0 Prokerala credits consumed).
+// Admin can write is_manual_override=true rows to correct any inaccurate values.
+
+export interface PanchangamCacheEntry {
+  date: string;
+  data: PanchangamDetails;
+  isManualOverride: boolean;
+  cachedAt: string;
+}
+
+export async function getPanchangamCacheEntry(date: string): Promise<PanchangamCacheEntry | null> {
+  const { data, error } = await supabase
+    .from('panchangam_cache')
+    .select('date, data, is_manual_override, cached_at')
+    .eq('date', date)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    date: data.date,
+    data: data.data as PanchangamDetails,
+    isManualOverride: data.is_manual_override,
+    cachedAt: data.cached_at,
+  };
+}
+
+export async function savePanchangamOverride(date: string, panchangam: PanchangamDetails): Promise<void> {
+  await supabase
+    .from('panchangam_cache')
+    .upsert(
+      { date, data: panchangam, is_manual_override: true, cached_at: new Date().toISOString() },
+      { onConflict: 'date' }
+    );
+  await addLog(`Panchangam manually overridden for ${date} by admin.`, 'edit');
+}
+
+export async function clearPanchangamOverride(date: string): Promise<void> {
+  await supabase.from('panchangam_cache').delete().eq('date', date);
+  await addLog(`Panchangam override cleared for ${date} — live API data will be used.`, 'edit');
 }
 
 // ─── Midnight Janitor (calls Supabase RPC) ────────────────────────────────────
