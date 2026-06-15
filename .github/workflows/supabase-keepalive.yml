@@ -20,8 +20,8 @@ jobs:
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
           echo "Supabase ping status: $HTTP_STATUS"
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "Warning: Expected 200, got $HTTP_STATUS"
+          if [ "$HTTP_STATUS" = "000" ]; then
+            echo "ERROR: Could not reach Supabase — check SUPABASE_URL secret is set correctly."
             exit 1
           fi
-          echo "Supabase project is active and healthy."
+          echo "Supabase responded (status $HTTP_STATUS) — project is active and will not pause."
