@@ -9,13 +9,14 @@ import {
   getEvents,
   getLifetimeCounter,
 } from '../db';
-import { 
-  ShieldCheck, 
-  Lock, 
-  Activity, 
-  RefreshCw, 
+import {
+  ShieldCheck,
+  Lock,
+  Activity,
+  RefreshCw,
   X
 } from 'lucide-react';
+import { showToast } from './Toast';
 
 // Import extracted sub-components
 import AdminAnnouncementForm from './admin/AdminAnnouncementForm';
@@ -30,16 +31,19 @@ import AdminTempleEmblemForm from './admin/AdminTempleEmblemForm';
 interface AdminPanelProps {
   language: Language;
   onClose: () => void;
+  onRefreshAllData?: () => Promise<void>;
   templeEmblem: string;
   onUpdateTempleEmblem: (url: string) => void;
   templeEmblemLibrary: TempleEmblemSlot[];
   onUpdateTempleEmblemLibrary: (list: TempleEmblemSlot[]) => void;
+  whatsappLink: string;
+  onUpdateWhatsappLink: (link: string) => void;
   announcement: Announcement;
   onUpdateAnnouncement: (ann: Announcement) => void;
   eventsList: EventItem[];
   onUpdateEvents: (list: EventItem[]) => void;
   galleryList: GalleryItem[];
-  onUpdateGallery: (list: GalleryItem[]) => void;
+  onUpdateGallery: (list: GalleryItem[]) => Promise<boolean>;
   donorsList: DonorRecord[];
   onUpdateDonors: (list: DonorRecord[]) => void;
   yearlyStats?: YearlyStat[];
@@ -59,10 +63,13 @@ interface AdminPanelProps {
 export default function AdminPanel({
   language,
   onClose,
+  onRefreshAllData,
   templeEmblem,
   onUpdateTempleEmblem,
   templeEmblemLibrary,
   onUpdateTempleEmblemLibrary,
+  whatsappLink,
+  onUpdateWhatsappLink,
   announcement,
   onUpdateAnnouncement,
   eventsList,
@@ -88,6 +95,9 @@ export default function AdminPanel({
 
   // Schedulers simulation outcome audit state
   const [sweepOutcome, setSweepOutcome] = useState<string | null>(null);
+
+  // Force-refresh loading state
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Active Authenticated Admin account state
   const [loggedInAdmin, setLoggedInAdmin] = useState<CommitteeMember | null>(() => {
@@ -175,11 +185,19 @@ export default function AdminPanel({
       const displayName = language === 'EN' ? authenticatedUser.nameEN : authenticatedUser.nameTE;
       const displayRole = language === 'EN' ? authenticatedUser.roleEN : authenticatedUser.roleTE;
       addLog(`${displayName} (${displayRole}) authenticated successfully.`, "security");
-      alert(language === 'EN' ? `Welcome back, ${displayName}!` : `స్వాగతం, ${displayName}!`);
+      showToast(language === 'EN' ? `Welcome back, ${displayName}!` : `స్వాగతం, ${displayName}!`, 'success');
     } else {
       setLoginError(t('errorWrongPassword'));
       addLog("Failed administrative entrance attempt blocked.", "security");
     }
+  };
+
+  const handleRefreshAllData = async () => {
+    if (!onRefreshAllData) return;
+    setIsRefreshing(true);
+    await onRefreshAllData();
+    setIsRefreshing(false);
+    showToast(language === 'EN' ? 'All data refreshed from Supabase!' : 'సుపాబేస్ నుండి డేటా తాజాగా లోడ్ అయింది!', 'success');
   };
 
   // Trigger Midnight Cleanup Schedulers (calls Supabase RPC)
@@ -207,10 +225,15 @@ export default function AdminPanel({
 • Check the Audit Logs section below for the full sweep report.`;
 
         setSweepOutcome(msg);
-        alert(t('systemCleanSuccess'));
+        showToast(t('systemCleanSuccess'), 'success');
       } catch (err) {
         console.error('Janitor error:', err);
-        alert(language === 'EN' ? 'Janitor sweep failed. Check console.' : 'జన్యు సిమ్యులేషన్ విఫలమైంది.');
+        showToast(
+          language === 'EN'
+            ? 'Cleanup failed — open browser console (F12) to see the full Supabase error.'
+            : 'డేటా క్లీనింగ్ విఫలమైంది — F12 నొక్కి కన్సోల్‌లో దోష వివరాలు చూడండి.',
+          'error'
+        );
       }
     }
   };
@@ -350,9 +373,17 @@ export default function AdminPanel({
                 <span className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">{language === 'EN' ? "Active Images" : "చిత్రాల సంఖ్య"}</span>
                 <p className="font-serif text-lg font-black text-[#7A1E1E]">{galleryList.filter(g=>g.type==='image').length} / 20</p>
               </div>
-              <div className="bg-white p-4 border border-amber-100 rounded-2xl shadow-sm text-center flex flex-col justify-center">
-                <span className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">{language === 'EN' ? "Master Security" : "సెక్యూరిటీ"}</span>
-                <p className="text-xs text-emerald-600 font-bold uppercase">● SECURE ENG</p>
+              <div className="bg-white p-4 border border-amber-100 rounded-2xl shadow-sm text-center flex flex-col items-center justify-center gap-2">
+                <span className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">{language === 'EN' ? "Data Sync" : "డేటా సమకాలీకరణ"}</span>
+                <button
+                  type="button"
+                  onClick={handleRefreshAllData}
+                  disabled={isRefreshing}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold transition cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <RefreshCw size={11} className={isRefreshing ? 'animate-spin' : ''} />
+                  <span>{isRefreshing ? (language === 'EN' ? 'Refreshing...' : 'లోడ్ అవుతోంది...') : (language === 'EN' ? 'Force Refresh' : 'తాజా డేటా')}</span>
+                </button>
               </div>
             </div>
 
@@ -399,10 +430,12 @@ export default function AdminPanel({
             />
 
             {/* Sub-component 1: Ticker Announcement Text Form */}
-            <AdminAnnouncementForm 
+            <AdminAnnouncementForm
               language={language}
               announcement={announcement}
               onUpdateAnnouncement={onUpdateAnnouncement}
+              whatsappLink={whatsappLink}
+              onUpdateWhatsappLink={onUpdateWhatsappLink}
               t={t}
             />
 

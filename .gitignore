@@ -8,3 +8,4 @@ coverage/
 !.env.example
 .claude/
 metadata.json
+assets/.aistudio/

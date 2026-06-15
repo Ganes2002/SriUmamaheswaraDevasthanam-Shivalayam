@@ -1,180 +1,210 @@
-# Functional Requirement Document (FRD) — Final Production Blueprint
-**Project Name**: Sri Umamaheswara Devasthanam Web Portal
+# Functional Requirement Document (FRD) — Sri Umamaheswara Devasthanam Web Portal
 
 **Architecture**: Single Page Application (SPA) with integrated secure modular Admin Dashboard
-**Cost Target**: ₹0 / $0 USD Lifetime Deployment (Excluding personal Custom Domain choice)
+**Backend**: Supabase (PostgreSQL) — all data persisted in the cloud, not in the browser
 
 ---
 
 ## 1. Technical Architecture & Tech Stack
 
 ```
-[ Frontend: React / Vite SPA ] -------------> Hosted on -----> [ Cloud Run Container / Vercel ] (Free Tier)
+[ React 19 + Vite 6 SPA (TypeScript) ]
           |
-          v (Secure Client-Side / State Synchronization via LocalStorage API)
-[ Multi-Device Persistence Engine ] -----------> Hosted on -----> [ Web Storage System ] (Persistent LocalState)
+          v  (Supabase JS client — 8 parallel queries on mount)
+[ Supabase / PostgreSQL — 9 tables ]
           |
-          +---> [ Gallery Asset Stream ] ------> Max 1MB compressed base64 / Image (Client Compressor)
-          |                                      Max 5MB Original File Size Guard (Strict Frontend Interceptor)
-          |                                      Max 20 Total Active Images (Cap Limit Exhaustion Block)
-          |
-          +---> [ Database Records ] ----------> Auto-Purged records & rollover calculations > 365 days
+          +---> gallery images ---------> [ Supabase Storage bucket ]
+          +---> YouTube video links ----> streamed zero-bandwidth from YouTube
+          +---> Automated cron ----------> pg_cron midnight janitor (see database_janitor_cron.md)
 ```
 
-* **Frontend Framework**: ReactJS utilizing functional components, custom hooks, and standard Vite structure for hot loading and optimized rendering.
-* **Styling Engine**: Tailwind CSS utility classes with native responsive layout prefixes (`sm:`, `md:`, `lg:`, `xl:`) for pixel-perfect adaptivity across all mobile phone browsers, tablets, and wide monitors.
-* **Database & Persistence**: LocalStorage persistence engine with automatic database seeds, state synchronization, and clean transaction logs stored under the `um_dev_*` namespace keys.
-* **Media Handling**: Client-side Canvas Image Compressor transforming uploaded images to base64 formats under 1MB; YouTube video stream integrations for zero-byte server bandwidth consumption.
+- **Frontend**: React 19, Vite 6, TypeScript, Tailwind CSS v4
+- **Backend**: Supabase (PostgreSQL, Supabase Storage, pg_cron)
+- **Auth**: App-level passcode matching against `committee_roster` — no Supabase Auth, no RLS
+- **Styling**: Tailwind utility classes with `sm:` / `md:` / `lg:` / `xl:` responsive prefixes
+- **Notifications**: Custom Toast system (slide-in from top-right, 4 types, auto-dismiss 5s)
 
 ---
 
 ## 2. User Roles & Access Control
 
-### 2.1 Public Viewers (Devotees)
-* **100% Open Access**: Zero-gate policy for public pages. Device-rendered instantly.
-* **View-Only Capabilities**: Capable of reading the real-time Telugu Panchangam elements, upcoming holy schedules, live scrolling marquee alerts, video stream playback, and scrolling the Welfare transparent Ledger.
-* **Social Sharing**: Interactive WhatsApp share integration to forward festival flyers to custom family networks.
+### 2.1 Public Visitors (Devotees)
+- Zero-gate access to all public sections
+- Read-only: announcements, events, gallery, donor ledger, yearly audits, committee contacts
 
 ### 2.2 Admin Users (Authorized Temple Committee Members)
-* **Unified Navbar Login Access**: Accessible exclusively through the top Navigation Bar (`NavBar.tsx`). The persistent floating login button at the bottom-right has been removed to preserve negative workspace margins and high elegant visuals.
-* **Case-Insensitive Multi-Member Passcode Gate**: A secure entrance block matched with flexible case-insensitive checks. Users can input standard master passcodes or custom registered keys. Official default operator credentials:
-  * **DEV1008**: Siddhanthi Sri Somshekara Sastry (*Chief Priest & Spiritual Advisor*)
-  * **PRES1008**: Dr. K. Radhakrishna Murthy (*Temple Committee President / Chairman*)
-  * **SECY567**: Sri S. V. Mallikarjuna Rao (*General Secretary*)
-  * **TEMP123**: Smt. T. Uma Maheswari (*Treasurer & Financial Auditor*)
-* **Operator Session Context Ribbon**: When logged in, the dashboard dynamically welcomes the operator by displaying their avatar profile picture, official human name, title, and current active session key.
+- Access via the Admin button in the NavBar → passcode entry form
+- Passcode matched case-insensitively against live `committee_roster` records from Supabase
+- Fallback hardcoded check for the 4 original passcodes if Supabase is unreachable
+- Default operator credentials:
+  - `DEV1008` — Siddhanthi Sri Somshekara Sastry *(Chief Priest)*
+  - `PRES1008` — Dr. K. Radhakrishna Murthy *(President / Chairman)*
+  - `SECY567` — Sri S. V. Mallikarjuna Rao *(General Secretary)*
+  - `TEMP123` — Smt. T. Uma Maheswari *(Treasurer)*
+  - `SEVA789` — Sri B. Ranganath *(Welfare & Logistics Coordinator)*
+- On successful login: operator name, role, and passcode key displayed in dashboard header; session stored in `localStorage` so page refresh does not force re-login
+- On failed login: inline error message + security log entry written to `security_audit_logs`
 
 ---
 
-## 3. Core Single-Page Section Requirements
+## 3. Public-Facing Sections
 
-### 3.1 Navigation Bar & Global Utilities
-* **Sticky Navigation Header**: High-contrast header enabling anchor scroll navigation: Home | About | Calendar | Events | Gallery | Donations | Contact.
-* **Bilingual Script Toggle**: Static high-contrast button allowing users to shift the complete user interface text between English (`EN`) and Telugu (`TE`) instantly.
-* **"Today's Special Announcement" Scrolling Marquee**: An amber scrolling banner pinned directly below the navbar to relay dynamic festival notifications, edited instantly by admins via the dashboard.
+### 3.1 NavBar (sticky)
+- Spiritual chant ribbon at the top (Sanskrit + Telugu, maroon background)
+- Temple name + logo, bilingual toggle (EN ↔ TE)
+- Scrolling announcement ticker — text from `announcements` table, shown only when `is_active = TRUE`
+- Admin button (opens panel modal); when logged in, shows Logout button instead
+- Logout: clears session, shows success Toast in active language
 
-### 3.2 Section 1: Home & Hero Welcoming Screen
-* **Wide-Screen Fitting Slider Carousel**: A massive screen-fitting rectangular slideshow (not rounded, matching responsive heights) displaying exactly up to five high-quality, auto-compressed devotional images from the `um_dev_temple_emblem_library` database array.
-* **Simplified Presentation & Transitions**: Image transitions occur seamlessly every 5 seconds, or manual overrides can be triggered via high-contrast left/right Chevron buttons and navigation dots at the bottom. No corner index numbers (such as "1/5", "2/5") are displayed to ensure a pristine devotional overview.
-* **Bilingual Display Labels**: Display captions and title tags adapt instantly to the active language configuration (`EN`/`TE`).
-* **Devotional Welcome Copy**: Displays simplified greetings and CTA buttons with clean font settings and balanced white space gaps.
+### 3.2 Home / Hero — Slideshow Carousel
+- Full-width, screen-fitting rectangular carousel (no rounded corners, no slide counter numbers)
+- Exactly 5 image slots, sourced from `temple_carousel_slides` table
+- Auto-advances every 5 seconds; manual left/right chevrons and dot indicators
+- Each slide shows bilingual title caption
+- Admins can replace slot images and titles from the Admin Panel
 
-### 3.3 Section 2: About & Tap-to-Navigate Maps
-* Tells the history and divine origin of the Sri Umamaheswara Devasthanam.
-* **Tap-to-Navigate Maps Shortcut**: A native button directing mobile triggers straight to Google Maps or Apple Maps apps with pre-loaded coordinates. Saves rendering weight and keeps database operations completely zero-cost.
+### 3.3 About Section
+- Static temple history and description — no database dependency
+- **Tap-to-Navigate Maps**: button that opens Google Maps / Apple Maps with the temple coordinates pre-loaded
 
-### 3.4 Section 3: Automated "Auspicious Time" Calculator (Telugu Panchangam)
-* Calculates and displays South Indian Telugu Panchangam elements (*Tithi*, *Nakshatram*, *Rahu Kalam*, *Yamagandam*, *Gulika*) computed entirely client-side on the devotee’s browser using custom coordinate math formulas.
-* **Fail-Safe Structural Fallback**: If mathematical calculator failures occur, the script automatically hides the calculator boxes gracefully and displays a link button to open the today's official static Panchangam timing chart document instead.
+### 3.4 Panchangam Section
+- Displays Telugu Panchangam (auspicious timings: Tithi, Nakshatram, Rahu Kalam, Yamagandam, Gulika) computed client-side
+- PDF download button: shows 'info' Toast — "Panchangam PDF export is coming soon. Use your browser's Print → Save as PDF."
 
-### 3.5 Section 4: Upcoming Events & Pujas (With WhatsApp Integration)
-* Displays custom event cards consisting of scheduled temple festivals, timings, and venues.
-* **WhatsApp Integration**: Includes a formatted WhatsApp share button on every event card that compiles a beautiful pre-filled template text (*"You are cordially invited to join us for the auspicious Maha Abhishekam..."*) to broadcast to custom grouping contacts in one click.
+### 3.5 Events Section
+- Upcoming puja ceremonies and festivals from the `events` table
+- Cards show bilingual title, date, time, location, description, and optional banner image
+- Sorted chronologically
+- **WhatsApp Share**: each event card has a share button that opens WhatsApp with a pre-filled bilingual invitation message (event title, date, time, venue, temple name)
 
-### 3.6 Section 5: Dynamic Media Gallery & Video Stream Rules
-* Grid layout displaying visual temple gallery assets.
-* **Strict Image Caps**: Limits total active gallery images to a maximum of **20 active images**. If the cap is reached, the dashboard blocks new image additions and mandates deleting an older asset first.
-* **Zero-Cost Streaming Architecture**: No raw `.mp4` file uploads are accepted on the server to prevent bandwidth drainage. Playback streams are connected exclusively using shared YouTube URL links.
+### 3.6 Gallery Section
+- Images and YouTube videos from `gallery_assets` table
+- Images displayed as thumbnails; YouTube entries as embedded iframe players
+- Hard cap: maximum 20 images (enforced in admin UI and documented in schema)
+- No cap on video count
 
-### 3.7 Section 6: Financial Transparency & Welfare Ledger
-* **Welfare Ledger Grid**: Displays verifiable ledger entries of public cash contributions.
-* **Total Cumulative Welfare Counter**: Tracks long-term lifetime collections to verify public trust.
-* **Current-Year Rolling Tracker**: Puts a highlight spotlight specifically on resources received during the ongoing active calendar year (2026).
-* **The 1-Year Financial Registry Security Guard**: Public grid lists of individual donors are restricted to display records **only for the current year (2026) and exactly one previous prior year (2025)**. Records older than 2025 are securely archived internally, satisfying security preservation rules.
+### 3.7 Welfare Ledger Section
+- **Donor Ledger**: individual records from `donor_ledger` (2025–2026 only; older records swept by nightly cron into yearly totals)
+- Anonymous donors show as "Anonymous Devotee / గుప్తదాత"
+- **Yearly Audit Cards**: totals and milestone text from `yearly_audits` (2020–2026)
+- **Lifetime Counter**: all-time total from `global_settings` key `lifetime_counter`
+- **Current Year Counter**: derived from `yearly_audits` row matching the current calendar year
+- "Request Records" button: 'info' Toast directing visitors to the temple office
+- PDF download button: 'info' Toast — feature noted as coming soon
 
-### 3.8 Section 7: Footer & Committee Directory
-* Physical coordinates, addresses, and a dynamic committee directory. The directory prints mobile numbers, roles, and profile pictures mapped directly from database rosters.
+### 3.8 Footer / Committee Directory
+- Lists all active committee members from `committee_roster`
+- Shows name, role, phone (tap-to-call), and email (tap-to-email)
 
----
+### 3.9 Quick Navigator (floating speed-dial)
+- Fixed bottom-left; expands into section jump links on hover/tap
+- Bilingual labels; top-offset accounts for sticky header height
 
-## 4. Decoupled Modular Admin Dashboard Architecture
-
-To enable high performance, readability, and avoid code file bloat, all administrative features are organized into isolated single-responsibility modules inside `/src/components/admin/`:
-
-1. **`AdminAnnouncementForm`**: Updates the dynamic scrolling marquee ticker across English & Telugu.
-2. **`AdminDonationForm`**: Appends active cash ledger reports and tallies their values back into the active current-year collection counter instantly.
-3. **`AdminYearlyAuditForm`**: Enables auditing yearly totals and milestones. Generates a strict custom selector listing all years ranging from **2000 to 2050** inclusive.
-4. **`AdminGalleryManager`**: Intercepts local photo uploads, runs size-constraint checks, converts inputs to compressed base64 elements, hosts YouTube feeds, and displays an image preview prior to executing deletions.
-5. **`AdminEventsManager`**: Posts or deletes upcoming devotional temple schedules.
-6. **`AdminCommitteeManager`**: Dynamically registers committee contact details, email addresses, and admin passcodes. Includes safety guards blocks preventing an operator from executing account deletions on their own active login profile.
-7. **`AdminLogsViewer`**: Renders verified admin system audit actions.
-8. **`AdminTempleEmblemForm`**: Empowers committee members with the capability to manage, add, replace, or delete the 5 slideshow carousel images stored in local storage database. Supports full file drag-and-drop, base64 optimization, and dual-language description editing.
-
----
-
-## 5. Automated Data Cleaning Schedulers (Backend Simulation)
-
-The platform incorporates automatic cleanup sweeps simulating scheduled cron operations to retain a permanent light, clean local storage footprint:
-
-* **Event data janitor**: Deletes festival cards whose dates are older than 365 days.
-* **Donor details janitor**: Daily records checker that isolates individual public listing lines older than 365 days and archives them.
-* **Cumulative Preservation Logic**: Before dropping individual list items, the script transfers the numerical transaction sum into the global cumulative *Lifetime Counter* pool to ensure historical math totals remain precise and mathematically unbroken.
-* **Admin Activity History Tracker**: Registers action histories securely and deletes audit trace lines older than 30 days to maximize browser memory health.
-
----
-*The above blueprint is verified, compiled, and actively deployed inside the application structure.*
+### 3.10 Toast Notification System
+- Slide-in notifications from top-right corner (z-index 99999, above all modals)
+- Four types: `success` (emerald), `error` (dark red), `warning` (amber), `info` (blue)
+- Structure per notification: gradient header strip + icon + label → message body → animated progress bar
+- Auto-dismisses after 5 seconds; X button for manual dismiss
+- Newest toast appears on top when stacked
+- Module-level singleton: `showToast(message, type)` callable from any component — no prop drilling
+- Used for every user-facing feedback event: saves, validations, login/logout, cleanup, errors
 
 ---
 
-## 6. Recent Production Revisions & Optimizations (June 2026)
+## 4. Admin Panel Modules
 
-### 6.1 Default Language Sequence Override
-* **Status**: Deployed.
-* **Update**: Modified the default state loading order to prioritize the regional **Telugu (TE)** interface language upon initial load instead of English (EN). This ensures optimal integration for local communities, allowing them to explicitly toggle English should they wish to.
+The panel opens as a full-screen modal (`z-index: 100`) with a passcode gate. On authentication, all sub-modules are rendered in a scrollable container.
 
-### 6.2 Desktop Navigation & Toolbar Overlapping Fix
-* **Status**: Deployed.
-* **Update**: Resolved header element crowding issues on standard desktops (1024px to 1280px widths). Styled links and action tags as `whitespace-nowrap` layout elements, pushed the language switcher and admin access button sets with explicit flex `ml-auto` rules, and transitioned high-density breakpoints dynamically to full-drawer mobile menus below `xl` scales (1280px).
+### 4.1 Dashboard Header & Quick Stats
+- Operator greeting card: avatar, name, role, session passcode key
+- Three stat cards: Active Events count | Images (N / 20) | Force Refresh button
+- Force Refresh: `bustAllCache()` then re-fetches all 8 Supabase tables in parallel → success Toast
 
-### 6.3 Sacred Tagline Contrast Enhancement
-* **Status**: Deployed.
-* **Update**: Elevated readability of the main devotional tagline *"Union of Cosmic Power & Divine Grace"* inside the Hero Section banner. Transitioned from the low-contrast transparent yellow (`text-amber-300/60` at 11px) to a solid, high-contrast, bold golden typography (`text-amber-300` at 12px-14px) separated elegantly by a customized top separator line (`border-amber-400/20`).
+### 4.2 Midnight Janitor Simulator
+- Button with confirm dialog
+- Calls `runMidnightJanitorSimulation()` Supabase RPC
+- Re-fetches fresh donors, events, lifetime counter after the sweep
+- Displays a plain-text summary of what was purged; success Toast or error Toast with F12 guidance
 
-### 6.4 Dynamic Temple Emblem & Sacred Logo Manager
-* **Status**: Deployed.
-* **Update**: Implemented a customizable primary Temple Emblem component prominently mounted at the center of the welcome Hero Section. Fully updated the admin dashboard with an intuitive drag-and-drop file uploader (featuring automated canvas compression to prevent database space bloating), pasted URL helper, and multi-preset selectors for pristine celestial icons. This ensures immediate recognition for non-fluent or village devotees upon initial landing.
+### 4.3 Temple Emblem & Carousel Manager (`AdminTempleEmblemForm`)
+- Update main emblem URL (saves to `global_settings.primary_temple_emblem`)
+- Edit all 5 carousel slide titles (EN + TE) and image URLs (saves to `temple_carousel_slides`)
+- Images uploaded to Supabase Storage or pasted as direct URLs
 
-### 6.5 Strictly Enforced 5-Slot Emblem Library & Enlarged Celestial Logo
-* **Status**: Deployed.
-* **Update**: Restructured database schemas and uploader workflows to strictly enforce a static 5-slot library boundary limit, protecting against storage space issues by avoiding the accumulation of stale base64 metadata. Redesigned the main welcome logo, enlarging its diameter by nearly 2x (up to `w-56 h-56` on desktop/tablet) and wrapping it with elegant, pulsing golden auras. Simplified layout presentation by removing the unrequested click-zoom triggers, devotional "darshan" buttons, and the timing card in accordance with constructive user specifications, leaving a pristine and highly focused corporate aesthetic. Added global horizontal layout bounders (`overflow-x-hidden`) to guarantee mobile viewport stability and absolute zero vertical-axis shaking.
+### 4.4 Announcement Ticker Editor (`AdminAnnouncementForm`)
+- Edit marquee ticker text in both EN and TE
+- Saves to `announcements` table → success Toast
 
-### 6.6 Full-Screen Fitting Slider Carousel & Dynamic Editing
-* **Status**: Deployed.
-* **Update**: Overhauled the static welcome emblem layout with a massive, screen-fitting rectangular slideshow (designed with precise aspect ratios, non-rounded edges, and sleek aesthetic borders) matching standard slider templates on top devotion portfolios. Added automated slide rotation every 5 seconds, custom manual pagination buttons (left/right Chevrons and responsive tracking nodes), and high-contrast text caption cards describing the active Alankara image. Erased all numbers/count indicators (e.g., "1/5", "2/5") to retain an absolute clean layout.
-* **Administrative Sync & Deletion Capability**: Fully integrated the `AdminTempleEmblemForm` carousel library module. Authorized committee members can instantly replace existing slots (via dragging/dropping or direct pasting), add new customized cards, or delete unnecessary assets while strictly guarding the 5-image total queue limit in the local database, guaranteeing all visual changes instantly propagate cleanly to physical devotees.
+### 4.5 Donation Recorder (`AdminDonationForm`)
+- Fields: donor name EN, donor name TE, amount (₹), date, purpose EN, purpose TE, Anonymous checkbox
+- Validation: both name fields required unless Anonymous is ticked → warning Toast if missing
+- On save: inserts into `donor_ledger`, increments current-year total → success Toast with formatted amount (e.g., "₹1,51,116 donation recorded in the public ledger successfully!")
 
-### 6.7 Dual Profile Photo Options & Shiva Denomination Accentuation
-* **Status**: Deployed.
-* **Update**: Added a flexible, high-fidelity profile photo selector in `AdminCommitteeManager`. Committee operators can now instantly choose between **Option A (direct file upload)** with automated, super-light Canvas base64 JPEG compression in the user's browser, or **Option B (pasting direct web image URLs)**. This ensures that custom physical committee headshots can be added on any device with zero setup overhead.
-* **Title Clarification**: Appended `(Shivalayam)` and `(శివాలయం)` to all English and Telugu translations representing the temple's official title (yielding *"Sri Umamaheswara Devasthanam (Shivalayam)"* / *"శ్రీ ఉమామహేశ్వర దేవస్థానం (శివాలయం)"*), ensuring immediate recognition as a temple of Lord Shiva.
+### 4.6 Yearly Audit Editor (`AdminYearlyAuditForm`)
+- Year selector spanning 2000–2050 (current year labelled "Active")
+- Fields: audited total amount, milestone text EN, milestone text TE
+- Saves to `yearly_audits` → success Toast with year name
 
-### 6.8 Purity of Donor Registry and Emoji Decandescence
-* **Status**: Deployed.
-* **Update**: Refined the visual representation of anonymous and private donor records by removing the unrequested lock/shusheer (`🤫`) emoji prefix from the name column in the ledger section, ensuring a highly respectful, pristine, and clean presentation in accordance with the corporate devotional layout standards.
+### 4.7 Gallery Manager (`AdminGalleryManager`)
+- Add a new item: title EN, title TE, and one of: upload image file (to Supabase Storage) or paste YouTube URL
+- Validation toasts: both titles required | upload must finish before saving | image cap warning if 20 already reached
+- Delete button per item with a confirm modal
+- Success Toast names the media type: "Photo added to the gallery…" / "Video added to the gallery…"
 
-### 6.9 Supabase/PostgreSQL Dual-Language Seeding Script
-* **Status**: Deployed.
-* **Update**: Created the SQL seeding file `/documents/database_seed.sql` populated with actual live default application records (including bilingual announcements, temple events, deities gallery links, donor ledger logs, committee roster passcodes, yearly stats, and carousel image slides). Ready for instant cloud migration to Supabase/PostgreSQL.
+### 4.8 Events Manager (`AdminEventsManager`)
+- Add event: title EN, title TE, date, time slot, description EN, description TE, venue EN, venue TE, optional banner URL
+- Validation: both titles required → warning Toast
+- Existing events list with delete button (confirm dialog)
+- Success Toast includes the event title
 
-### 6.10 Intelligent Floating Speed-Dial Navigation Page Jump
-* **Status**: Deployed.
-* **Update**: Created a fully responsive, interactive floating speed-dial section quick-navigator (`QuickNavigator`), specially optimized to prevent scroll fatigue on mobile browsers. Pinned elegant gold-rimmed icons and bilingual labels (`ప్రధాన పేజీ`, `ఆలయ విశిష్టత`, etc.) inside a collapsible drawer. Now perpetually available at all scroll positions (including the page absolute top) for immediate zero-effort jump actions. Uses intelligent top offsets to perfectly align with sticky header layers.
+### 4.9 Committee Manager (`AdminCommitteeManager`)
+- Add a new member with full profile fields and login passcode
+- Edit existing members (any field, including passcode); minimum-length guard on passcode → warning Toast
+- Profile image: upload to Supabase Storage or paste URL; image > 2 MB shows warning Toast before upload
+- Delete any member except the currently logged-in admin → error Toast if self-delete attempted
+- Personalized success Toasts (e.g., "Mallikarjuna Rao's details and login credentials updated successfully!")
 
-### 6.11 Unified Sticky Composite Header Stack and Direct Admin Visibility
-* **Status**: Deployed.
-* **Update**: Grouped the Spiritual Chant Ribbon, the branding logo with devotee portal titles, and the scrolling flash updates announcement marquee into a single static/fixed sticky container. Refactored the header navigation into a highly responsive toolbar visible on computers, laptops, tablets, and mobiles. Standardized laptop size breakpoints (now $\ge 1024px$ default desktop) and made the critical "Admin" login toggle directly accessible on standard desktop width without layout compromises.
+### 4.10 Audit Logs Viewer (`AdminLogsViewer`)
+- Read-only list from `security_audit_logs`
+- Shows timestamp, action text, category badge (cleaning / security / edit / gallery)
 
-### 6.12 Restored Clean Desktop/Mobile Action Button Aesthetics
-* **Status**: Deployed.
-* **Update**: Restored the original high-contrast gold/red desktop/tablet and clean mobile actions layout to keep the navbar aesthetically pristine. On screens larger than tablet (`lg:` break limit), the header utilizes the roomy inline bilingual language switcher badge and bordered Admin credentials login buttons. On mobile viewports under 1024px, the header features a clean circular language translation shortcut alongside the primary navigation menu drawer, preserving maximum negative space and preventing screen crowd on small device viewports.
+---
 
-### 6.13 Robust Scroll Sticky Positioning Fix via overflow-x: clip
-* **Status**: Deployed.
-* **Update**: Replaced legacy `overflow-x: hidden` with modern browser-safe `overflow-x: clip` in root CSS layouts. This prevents horizontal margins shift on iOS and other touch devices while keeping the composite sticky headers (Chant Ribbon, Branding Navbar, and Flash Announcement Ticker) perfectly static/fixed on screen during active scroll navigation.
+## 5. Backend Behaviour
 
-### 6.14 Surgical Hover Precision for Floating Jump Speed-dial
-* **Status**: Deployed.
-* **Update**: Refined hover area activation for the floating speed-dial component. The quick jump options drawer now expands *only* when the cursor is directly positioned over the floating launcher button, completely eliminating accidental activations from empty margins and blank layout corners.
+### 5.1 Data Loading (App Mount)
+8 Supabase queries fire in parallel:
+`global_settings` | `temple_carousel_slides` | `announcements` | `events` | `gallery_assets` | `donor_ledger` | `committee_roster` | `yearly_audits`
 
+`admin_accounts` and `currentYearTotal` are derived from the already-fetched data — no extra queries.
+`bustAllCache()` is called on every mount so stale localStorage-cached data never blocks a fresh fetch.
 
+### 5.2 Caching
+Short-lived localStorage cache per Supabase table to avoid duplicate reads within the same session. Busted on Force Refresh and on every app mount.
 
+### 5.3 Midnight Janitor (Supabase cron)
+- Runs daily at midnight (pg_cron schedule)
+- Sweeps `donor_ledger` rows > 365 days old → totals consolidated into `yearly_audits`, rows deleted
+- Sweeps `events` rows > 365 days old
+- Clears `security_audit_logs` entries > 30 days old
+- Writes a run-summary log entry
+- See `database_janitor_cron.md` for full SQL implementation
+
+### 5.4 Permissions
+- RLS disabled on all 9 tables — PostgreSQL GRANTs give the `anon` role full DML access
+- See `supabase_complete_setup.sql` Part C for exact GRANT statements
+
+---
+
+## 6. Non-Functional Requirements
+
+| Requirement | Implementation |
+|---|---|
+| Bilingual | Every user-facing string in EN or TE, toggled from NavBar; default language is Telugu (TE) |
+| Mobile-first | Tailwind responsive prefixes; `safe-area-inset` padding for iOS home bar; `overflow-x: clip` (not `hidden`) to preserve sticky headers |
+| Scroll detection | Multi-source listener (window + document + documentElement + touchmove + interval fallback) for iOS/Android tablet compatibility |
+| Image cap | Max 20 images in gallery — enforced in `AdminGalleryManager.tsx` before any Supabase write |
+| No `alert()` | All feedback uses Toast system — zero `window.alert()` calls in the codebase |
+| Session persistence | Admin login stored in `localStorage` so page refresh does not force re-login |
+| Honest placeholders | PDF export and records-request buttons show informative 'info' Toasts rather than fake success messages |
+| Scroll-to-top | Fixed bottom-right button, appears after 80 px scroll, smooth scroll on click |

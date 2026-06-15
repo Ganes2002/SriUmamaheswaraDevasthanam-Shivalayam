@@ -85,6 +85,14 @@ function cacheBust(key: string): void {
   try { localStorage.removeItem(CACHE_PREFIX + key); } catch {}
 }
 
+export function bustAllCache(): void {
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(CACHE_PREFIX))
+      .forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+
 // ─── Fallback defaults (used when Supabase returns no data) ───────────────────
 
 const DEFAULT_EMBLEM_URL =
@@ -110,14 +118,16 @@ const DEFAULT_ANNOUNCEMENT: Announcement = {
 // Replaces two separate global_settings queries with one — saves 1 round trip
 // on every page load. Individual getters still work (they use the same cache).
 
-export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifetimeCounter: number }> {
+export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifetimeCounter: number; whatsappLink: string }> {
   const cachedEmblem = cacheGet<string>('emblem');
   const cachedLifetime = cacheGet<number>('lifetime');
-  if (cachedEmblem !== null && cachedLifetime !== null) {
-    return { templeEmblem: cachedEmblem, lifetimeCounter: cachedLifetime };
+  const cachedWa = cacheGet<string>('walink');
+  if (cachedEmblem !== null && cachedLifetime !== null && cachedWa !== null) {
+    return { templeEmblem: cachedEmblem, lifetimeCounter: cachedLifetime, whatsappLink: cachedWa };
   }
 
-  const { data } = await supabase.from('global_settings').select('key, value');
+  const { data, error } = await supabase.from('global_settings').select('key, value');
+  if (error) console.error('[db] getGlobalSettings error:', error.message, error.details);
   const map = (data || []).reduce<Record<string, string>>((acc, r) => {
     acc[r.key] = r.value;
     return acc;
@@ -125,22 +135,34 @@ export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifet
 
   const templeEmblem = map['primary_temple_emblem'] || DEFAULT_EMBLEM_URL;
   const lifetimeCounter = Number(map['lifetime_counter']) || 2852500;
+  const whatsappLink = map['whatsapp_link'] || '';
 
   cacheSet('emblem', templeEmblem, TTL.long);
   cacheSet('lifetime', lifetimeCounter, TTL.short);
-  return { templeEmblem, lifetimeCounter };
+  cacheSet('walink', whatsappLink, TTL.long);
+  return { templeEmblem, lifetimeCounter, whatsappLink };
 }
 
 // ─── Temple Emblem ────────────────────────────────────────────────────────────
 
+export async function saveWhatsappLink(link: string): Promise<void> {
+  await supabase.from('global_settings').upsert(
+    { key: 'whatsapp_link', value: link, updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+  cacheBust('walink');
+  addLog('Committee updated the WhatsApp community group/channel link.', 'edit');
+}
+
 export async function getTempleEmblem(): Promise<string> {
   const cached = cacheGet<string>('emblem');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('global_settings')
     .select('value')
     .eq('key', 'primary_temple_emblem')
     .single();
+  if (error) console.error('[db] getTempleEmblem error:', error.message);
   const result = data?.value || DEFAULT_EMBLEM_URL;
   cacheSet('emblem', result, TTL.long);
   return result;
@@ -158,10 +180,11 @@ export async function saveTempleEmblem(url: string): Promise<void> {
 export async function getTempleEmblemLibrary(): Promise<TempleEmblemSlot[]> {
   const cached = cacheGet<TempleEmblemSlot[]>('emblib');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('temple_carousel_slides')
     .select('*')
     .order('id', { ascending: true });
+  if (error) console.error('[db] getTempleEmblemLibrary error:', error.message);
   if (!data || data.length === 0) return DEFAULT_EMBLEM_LIBRARY;
   const result = data.map((row) => ({
     id: row.id,
@@ -213,12 +236,13 @@ export async function saveTempleEmblemLibrary(library: TempleEmblemSlot[]): Prom
 export async function getAnnouncement(): Promise<Announcement> {
   const cached = cacheGet<Announcement>('announcement');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('announcements')
     .select('*')
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) console.error('[db] getAnnouncement error:', error.message);
   if (!data) return DEFAULT_ANNOUNCEMENT;
   const result = {
     id: data.id,
@@ -251,10 +275,11 @@ export async function saveAnnouncement(ann: Announcement): Promise<void> {
 export async function getCommittee(): Promise<CommitteeMember[]> {
   const cached = cacheGet<CommitteeMember[]>('committee');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('committee_roster')
     .select('*')
     .order('created_at', { ascending: true });
+  if (error) console.error('[db] getCommittee error:', error.message);
   if (!data) return [];
   const result = data.map((row) => ({
     id: row.id,
@@ -307,10 +332,11 @@ export async function saveCommittee(list: CommitteeMember[]): Promise<void> {
 export async function getEvents(): Promise<EventItem[]> {
   const cached = cacheGet<EventItem[]>('events');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('events')
     .select('*')
     .order('event_date', { ascending: true });
+  if (error) console.error('[db] getEvents error:', error.message);
   if (!data) return [];
   const result = data.map((row) => ({
     id: row.id,
@@ -363,10 +389,11 @@ export async function saveEvents(list: EventItem[]): Promise<void> {
 export async function getGallery(): Promise<GalleryItem[]> {
   const cached = cacheGet<GalleryItem[]>('gallery');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('gallery_assets')
     .select('*')
     .order('added_at', { ascending: false });
+  if (error) console.error('[db] getGallery error:', error.message);
   if (!data) return [];
   const result = data.map((row) => ({
     id: row.id,
@@ -399,7 +426,7 @@ export async function saveGallery(items: GalleryItem[]): Promise<boolean> {
   }
 
   if (items.length > 0) {
-    await supabase.from('gallery_assets').upsert(
+    const { error: upsertError } = await supabase.from('gallery_assets').upsert(
       items.map((i) => ({
         id: i.id,
         media_type: i.type,
@@ -410,6 +437,10 @@ export async function saveGallery(items: GalleryItem[]): Promise<boolean> {
       })),
       { onConflict: 'id' }
     );
+    if (upsertError) {
+      console.error('[db] saveGallery upsert error:', upsertError.message, upsertError.details);
+      return false;
+    }
   }
   cacheBust('gallery');
   return true;
@@ -420,10 +451,11 @@ export async function saveGallery(items: GalleryItem[]): Promise<boolean> {
 export async function getDonors(): Promise<DonorRecord[]> {
   const cached = cacheGet<DonorRecord[]>('donors');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('donor_ledger')
     .select('*')
     .order('payment_date', { ascending: false });
+  if (error) console.error('[db] getDonors error:', error.message);
   if (!data) return [];
   const result = data.map((row) => ({
     id: row.id,
@@ -549,10 +581,11 @@ export async function addLog(
 export async function getYearlyStats(): Promise<YearlyStat[]> {
   const cached = cacheGet<YearlyStat[]>('yearstats');
   if (cached !== null) return cached;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('yearly_audits')
     .select('*')
     .order('fiscal_year', { ascending: false });
+  if (error) console.error('[db] getYearlyStats error:', error.message);
   if (!data) return [];
   const result = data.map((row) => ({
     year: row.fiscal_year,

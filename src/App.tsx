@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   getGlobalSettings,
+  saveWhatsappLink,
   getAnnouncement,
   saveAnnouncement,
   getCommittee,
@@ -20,6 +21,7 @@ import {
   saveTempleEmblem,
   getTempleEmblemLibrary,
   saveTempleEmblemLibrary,
+  bustAllCache,
 } from './db';
 import { ArrowUp } from 'lucide-react';
 import { Language, TRANSLATIONS } from './translations';
@@ -45,6 +47,7 @@ import WelfareLedgerSection from './components/WelfareLedgerSection';
 import FooterContact from './components/FooterContact';
 import AdminPanel from './components/AdminPanel';
 import QuickNavigator from './components/QuickNavigator';
+import Toast, { showToast } from './components/Toast';
 
 export default function App() {
   // Global States
@@ -62,6 +65,7 @@ export default function App() {
   // Database States
   const [templeEmblem, setTempleEmblem] = useState<string>('');
   const [templeEmblemLibrary, setTempleEmblemLibrary] = useState<TempleEmblemSlot[]>([]);
+  const [whatsappLink, setWhatsappLink] = useState<string>('');
   const [announcement, setAnnouncement] = useState<Announcement>({
     id: '',
     textEN: '',
@@ -78,9 +82,14 @@ export default function App() {
   const [lifetimeTotal, setLifetimeTotal] = useState(2852500);
   const [currentYearTotal, setCurrentYearTotal] = useState(685420);
 
-  // Load all data from Supabase on mount — 8 parallel queries (was 11)
-  useEffect(() => {
-    async function loadAllData() {
+  // Load all data from Supabase — 8 parallel queries (was 11).
+  // Extracted as useCallback so refreshAllData can call it without re-mounting.
+  const loadAllData = useCallback(async () => {
+    try {
+      // Always bust the cache before the initial load so stale empty data
+      // (cached before Supabase was fully set up) never blocks a fresh fetch.
+      bustAllCache();
+
       const [
         globalSettings,
         emblemLib,
@@ -103,6 +112,7 @@ export default function App() {
 
       setTempleEmblem(globalSettings.templeEmblem);
       setLifetimeTotal(globalSettings.lifetimeCounter);
+      setWhatsappLink(globalSettings.whatsappLink);
       setTempleEmblemLibrary(emblemLib);
       setAnnouncement(ann);
       setEventsList(events);
@@ -127,9 +137,20 @@ export default function App() {
       const currYear = new Date().getFullYear().toString();
       const currStat = yearlyStats.find((s) => s.year === currYear);
       if (currStat) setCurrentYearTotal(currStat.totalAmount);
+    } catch (err) {
+      console.error('[App] loadAllData failed:', err);
     }
-    loadAllData();
   }, []);
+
+  // Clears all localStorage cache keys then re-fetches everything from Supabase.
+  const refreshAllData = useCallback(async () => {
+    bustAllCache();
+    await loadAllData();
+  }, [loadAllData]);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
   // Monitor scroll position — multi-source, robust on iOS/Android tablet
   useEffect(() => {
@@ -176,6 +197,11 @@ export default function App() {
 
   // ─── State update handlers (save to Supabase then update React state) ────────
 
+  const handleUpdateWhatsappLink = async (link: string) => {
+    await saveWhatsappLink(link);
+    setWhatsappLink(link);
+  };
+
   const handleUpdateTempleEmblem = async (url: string) => {
     await saveTempleEmblem(url);
     setTempleEmblem(url);
@@ -196,12 +222,13 @@ export default function App() {
     setEventsList(list);
   };
 
-  const handleUpdateGallery = async (list: GalleryItem[]) => {
+  const handleUpdateGallery = async (list: GalleryItem[]): Promise<boolean> => {
     const success = await saveGallery(list);
     if (success) {
       const refreshed = await getGallery();
       setGalleryList(refreshed);
     }
+    return success;
   };
 
   const handleUpdateDonors = async (list: DonorRecord[]) => {
@@ -258,7 +285,12 @@ export default function App() {
     setIsAdminOpen(false);
     localStorage.removeItem('um_dev_logged_in_admin');
     addLog('Administrator signed out securely.', 'security');
-    alert(language === 'EN' ? 'Logged out successfully!' : 'విజయవంతంగా నిష్క్రమించారు!');
+    showToast(
+      language === 'EN'
+        ? 'Signed out securely. Namaste! 🙏'
+        : 'నమస్తే! విజయవంతంగా నిష్క్రమించారు. 🙏',
+      'success'
+    );
   };
 
   return (
@@ -289,7 +321,7 @@ export default function App() {
 
       {/* Main Content — overflow-x:clip avoids breaking position:fixed on iOS unlike overflow:hidden */}
       <main className="flex-1 overflow-x-clip">
-        <HeroSection language={language} templeEmblemLibrary={templeEmblemLibrary} />
+        <HeroSection language={language} templeEmblemLibrary={templeEmblemLibrary} whatsappLink={whatsappLink} />
         <AboutSection language={language} />
         <PanchangamSection language={language} />
         <EventsSection language={language} eventsList={eventsList} />
@@ -311,10 +343,13 @@ export default function App() {
         <AdminPanel
           language={language}
           onClose={() => setIsAdminOpen(false)}
+          onRefreshAllData={refreshAllData}
           templeEmblem={templeEmblem}
           onUpdateTempleEmblem={handleUpdateTempleEmblem}
           templeEmblemLibrary={templeEmblemLibrary}
           onUpdateTempleEmblemLibrary={handleUpdateTempleEmblemLibrary}
+          whatsappLink={whatsappLink}
+          onUpdateWhatsappLink={handleUpdateWhatsappLink}
           announcement={announcement}
           onUpdateAnnouncement={handleUpdateAnnouncement}
           eventsList={eventsList}
@@ -340,6 +375,9 @@ export default function App() {
 
       {/* Floating Speed-Dial Navigator */}
       <QuickNavigator language={language} />
+
+      {/* Global toast notification container */}
+      <Toast />
 
       {/* Scroll-to-Top Button — always in DOM, opacity-controlled so iOS never misses a render cycle */}
       <button

@@ -3,6 +3,7 @@ import { Receipt, Plus } from 'lucide-react';
 import { Language } from '../../translations';
 import { DonorRecord } from '../../types';
 import { addLog } from '../../db';
+import { showToast } from '../Toast';
 
 interface AdminDonationFormProps {
   language: Language;
@@ -32,7 +33,12 @@ export default function AdminDonationForm({
   const handleDonationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!donorIsAnon && (!donorNameEN || !donorNameTE)) {
-      alert("Sponsor names required.");
+      showToast(
+        language === 'EN'
+          ? "Please enter the donor's name in both English and Telugu, or tick Anonymous."
+          : "దాత పేరు తెలుగు మరియు ఇంగ్లీష్ రెండింటిలో నమోదు చేయండి లేదా గుప్తదాత ఎంచుకోండి.",
+        'warning'
+      );
       return;
     }
 
@@ -63,7 +69,12 @@ export default function AdminDonationForm({
     setDonorNameEN('');
     setDonorNameTE('');
     setDonorAmount(5116);
-    alert(language === 'EN' ? "Donation recorded to transparent ledger successfully!" : "విరాళం విజయవంతంగా లెడ్జర్ లో నమోదు చేయబడింది!");
+    showToast(
+      language === 'EN'
+        ? `₹${Number(donorAmount).toLocaleString()} donation recorded in the public ledger successfully!`
+        : `₹${Number(donorAmount).toLocaleString()} విరాళం పారదర్శక లెడ్జర్‌లో విజయవంతంగా నమోదైంది!`,
+      'success'
+    );
   };
 
   return (

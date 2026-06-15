@@ -3,11 +3,12 @@ import { Image as ImageIcon, ImageUp, Trash2, Loader2 } from 'lucide-react';
 import { Language } from '../../translations';
 import { GalleryItem } from '../../types';
 import { addLog, uploadImageToStorage } from '../../db';
+import { showToast } from '../Toast';
 
 interface AdminGalleryManagerProps {
   language: Language;
   galleryList: GalleryItem[];
-  onUpdateGallery: (list: GalleryItem[]) => void;
+  onUpdateGallery: (list: GalleryItem[]) => Promise<boolean>;
   t: (key: string) => string;
 }
 
@@ -85,24 +86,39 @@ export default function AdminGalleryManager({
     reader.readAsDataURL(file);
   };
 
-  const handleGallerySubmit = (e: React.FormEvent) => {
+  const handleGallerySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mediaTitleEN || !mediaTitleTE) {
-      alert('Provide titles for both English and Telugu.');
+      showToast(
+        language === 'EN'
+          ? 'Please enter the title in both English and Telugu before saving.'
+          : 'తెలుగు మరియు ఇంగ్లీష్ రెండింటిలో శీర్షికలు నమోదు చేయండి.',
+        'warning'
+      );
       return;
     }
     if (!mediaUrl) {
-      alert('Upload a photo or paste a YouTube URL.');
+      showToast(
+        language === 'EN'
+          ? 'Please upload a photo or paste a valid YouTube video URL first.'
+          : 'మొదట ఒక ఫోటో అప్‌లోడ్ చేయండి లేదా YouTube లింక్ ఇవ్వండి.',
+        'warning'
+      );
       return;
     }
     if (isUploading) {
-      alert(language === 'EN' ? 'Please wait — upload still in progress.' : 'అప్‌లోడ్ పూర్తయ్యేంత వరకు వేచి ఉండండి.');
+      showToast(
+        language === 'EN'
+          ? 'Upload in progress — please wait until it finishes before saving.'
+          : 'అప్‌లోడ్ పూర్తయ్యేంత వరకు వేచి ఉండండి.',
+        'warning'
+      );
       return;
     }
 
     const imagesCount = galleryList.filter((item) => item.type === 'image').length;
     if (mediaType === 'image' && imagesCount >= 20) {
-      alert(t('imageLimitAlert'));
+      showToast(t('imageLimitAlert'), 'warning');
       addLog('Attempted image upload blocked due to 20-image cap exhaustion.', 'gallery');
       return;
     }
@@ -116,15 +132,35 @@ export default function AdminGalleryManager({
       addedAt: new Date().toISOString(),
     };
 
-    onUpdateGallery([newItem, ...galleryList]);
-    addLog(`Appended new ${mediaType} to media stream: "${mediaTitleEN}"`, 'gallery');
+    setIsUploading(true);
+    setMediaUploadStatus(language === 'EN' ? 'Saving to database...' : 'డేటాబేస్‌లో సేవ్ అవుతోంది...');
 
+    const success = await onUpdateGallery([newItem, ...galleryList]);
+
+    setIsUploading(false);
+    setMediaUploadStatus('');
+
+    if (!success) {
+      setMediaUploadError(
+        language === 'EN'
+          ? 'Failed to save to database. Check browser console (F12) for the exact Supabase error — it is usually an RLS policy missing on gallery_assets table.'
+          : 'డేటాబేస్‌లో సేవ్ విఫలమైంది. బ్రౌజర్ కన్సోల్ (F12) తెరిచి చూడండి.'
+      );
+      return;
+    }
+
+    addLog(`Appended new ${mediaType} to media stream: "${mediaTitleEN}"`, 'gallery');
     setMediaTitleEN('');
     setMediaTitleTE('');
     setMediaUrl('');
     setMediaUploadStatus('');
     setMediaUploadError('');
-    alert(language === 'EN' ? 'Media stream appended successfully!' : 'చిత్రమాలికలోకి విజయవంతంగా సేవ్ చేయబడింది!');
+    showToast(
+      language === 'EN'
+        ? `${mediaType === 'image' ? 'Photo' : 'Video'} added to the gallery — it is now live on the site!`
+        : `${mediaType === 'image' ? 'చిత్రం' : 'వీడియో'} చిత్రమాలికలో విజయవంతంగా ప్రచురించబడింది!`,
+      'success'
+    );
   };
 
   const executeGalleryDeletion = () => {

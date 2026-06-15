@@ -3,6 +3,7 @@ import { TrendingUp } from 'lucide-react';
 import { Language } from '../../translations';
 import { YearlyStat } from '../../types';
 import { addLog } from '../../db';
+import { showToast } from '../Toast';
 
 interface AdminYearlyAuditFormProps {
   language: Language;
@@ -66,7 +67,12 @@ export default function AdminYearlyAuditForm({
       }
       onUpdateYearlyStats(nextStats);
       addLog(`Updated financial stats for Year ${editYear}: ₹${Number(editYearAmount).toLocaleString()}`, "edit");
-      alert(language === 'EN' ? `Year ${editYear} stats saved successfully!` : `${editYear} నిధుల వివరాలు భద్రపరచబడ్డాయి!`);
+      showToast(
+        language === 'EN'
+          ? `${editYear} financial stats saved — Welfare Ledger charts updated instantly!`
+          : `${editYear} ఆర్థిక వివరాలు సేవ్ అయ్యాయి — వెల్ఫేర్ లెడ్జర్ తక్షణమే నవీకరించబడింది!`,
+        'success'
+      );
     }
   };
 

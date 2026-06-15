@@ -3,6 +3,7 @@ import { Calendar, Trash2 } from 'lucide-react';
 import { Language } from '../../translations';
 import { EventItem } from '../../types';
 import { addLog } from '../../db';
+import { showToast } from '../Toast';
 
 interface AdminEventsManagerProps {
   language: Language;
@@ -31,7 +32,12 @@ export default function AdminEventsManager({
   const handleEventSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!evtTitleEN || !evtTitleTE) {
-      alert("Please provide both English & Telugu Event titles.");
+      showToast(
+        language === 'EN'
+          ? 'Event title is required in both English and Telugu before publishing.'
+          : 'ప్రచురించే ముందు ఇంగ్లీష్ మరియు తెలుగు రెండింటిలో సేవ శీర్షిక నమోదు చేయండి.',
+        'warning'
+      );
       return;
     }
 
@@ -51,13 +57,18 @@ export default function AdminEventsManager({
     const nextEvents = [newEvent, ...eventsList];
     onUpdateEvents(nextEvents);
     addLog(`Posted new custom event: "${evtTitleEN}"`, "edit");
-    
+
     // Clear Event Form
     setEvtTitleEN('');
     setEvtTitleTE('');
     setEvtDescEN('');
     setEvtDescTE('');
-    alert(language === 'EN' ? "New event posted successfully!" : "కొత్త సేవ సమాచారం ప్రచురించబడింది!");
+    showToast(
+      language === 'EN'
+        ? `"${evtTitleEN}" has been published to the Events section!`
+        : `"${evtTitleTE}" సేవలు విభాగంలో విజయవంతంగా ప్రచురించబడింది!`,
+      'success'
+    );
   };
 
   const handleDeleteEvent = (id: string, title: string) => {

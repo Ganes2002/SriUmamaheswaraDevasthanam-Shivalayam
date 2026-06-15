@@ -3,6 +3,7 @@ import { Users, Edit, Trash2, Phone, Mail, UserPlus, Camera } from 'lucide-react
 import { Language } from '../../translations';
 import { CommitteeMember } from '../../types';
 import { addLog } from '../../db';
+import { showToast } from '../Toast';
 
 interface AdminCommitteeManagerProps {
   language: Language;
@@ -36,9 +37,9 @@ export default function AdminCommitteeManager({
   const compressAndSetProfileImage = (file: File) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert(language === 'EN' 
-        ? "Selected image is too large! Please select an image under 2MB." 
-        : "చిత్రం పరిమాణం చాలా ఎక్కువగా ఉంది! దయచేసి 2MB లోపు ఉన్న చిత్రాన్ని ఎంచుకోండి.");
+      showToast(language === 'EN'
+        ? "Selected image is too large! Please select an image under 2MB."
+        : "చిత్రం పరిమాణం చాలా ఎక్కువగా ఉంది! దయచేసి 2MB లోపు ఉన్న చిత్రాన్ని ఎంచుకోండి.", 'warning');
       return;
     }
 
@@ -111,7 +112,7 @@ export default function AdminCommitteeManager({
 
     const typedPass = commPasscode.trim();
     if (typedPass.length < 4) {
-      alert(language === 'EN' ? "Security Passcode must be at least 4 characters long!" : "భద్రతా పాస్‌కోడ్ కనీసం 4 అక్షరాల నిడివి కలిగి ఉండాలి!");
+      showToast(language === 'EN' ? "Security Passcode must be at least 4 characters long!" : "భద్రతా పాస్‌కోడ్ కనీసం 4 అక్షరాల నిడివి కలిగి ఉండాలి!", 'warning');
       return;
     }
 
@@ -136,7 +137,12 @@ export default function AdminCommitteeManager({
       });
       onUpdateCommittee(nextList);
       addLog(`Updated committee member: "${commNameEN}"`, "edit");
-      alert(language === 'EN' ? "Committee member and admin credentials updated successfully!" : "కమిటీ సభ్యుని సమగ్ర వివరాలు మరియు లాగిన్ క్రెడెన్షియల్స్ నవీకరించబద్ధాయి!");
+      showToast(
+        language === 'EN'
+          ? `${commNameEN}'s details and login credentials updated successfully!`
+          : `${commNameTE} వివరాలు మరియు లాగిన్ క్రెడెన్షియల్స్ విజయవంతంగా నవీకరించబడ్డాయి!`,
+        'success'
+      );
 
       // If logged-in admin was edited, update current session information immediately
       if (loggedInAdmin && loggedInAdmin.id === editCommitteeId) {
@@ -172,7 +178,12 @@ export default function AdminCommitteeManager({
       };
       onUpdateCommittee([...committeeList, newMember]);
       addLog(`Added new committee member: "${commNameEN}"`, "edit");
-      alert(language === 'EN' ? "New committee member & passcode credentials registered!" : "కొత్త కమిటీ సభ్యుడు & లాగిన్ పాస్‌కోడ్ జోడించబడ్డారు!");
+      showToast(
+        language === 'EN'
+          ? `${commNameEN} registered as a new committee member with admin access!`
+          : `${commNameTE} కొత్త కమిటీ సభ్యుడిగా మరియు అడ్మిన్ యాక్సెస్‌తో నమోదయ్యారు!`,
+        'success'
+      );
     }
 
     resetCommitteeForm();
@@ -182,7 +193,7 @@ export default function AdminCommitteeManager({
     if (!onUpdateCommittee) return;
     
     if (loggedInAdmin && member.id === loggedInAdmin.id) {
-      alert(language === 'EN' ? "You cannot delete your own active running session account!" : "ప్రస్తుతం లాగిన్ అయి ఉన్న మీ స్వంత ఖాతాను మీరు తొలగించలేరు!");
+      showToast(language === 'EN' ? "You cannot delete your own active running session account!" : "ప్రస్తుతం లాగిన్ అయి ఉన్న మీ స్వంత ఖాతాను మీరు తొలగించలేరు!", 'error');
       return;
     }
 
@@ -190,7 +201,12 @@ export default function AdminCommitteeManager({
       const nextList = committeeList.filter(m => m.id !== member.id);
       onUpdateCommittee(nextList);
       addLog(`Removed committee member: "${member.nameEN}"`, "edit");
-      alert(language === 'EN' ? "Member removed from active roll!" : "కమిటీ సభ్యుడు తొలగించబడ్డారు!");
+      showToast(
+        language === 'EN'
+          ? `${member.nameEN} has been removed from the committee roll.`
+          : `${member.nameTE} కమిటీ జాబితా నుండి తొలగించబడ్డారు.`,
+        'success'
+      );
       if (editCommitteeId === member.id) {
         resetCommitteeForm();
       }

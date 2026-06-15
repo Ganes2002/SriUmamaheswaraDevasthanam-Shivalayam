@@ -3,6 +3,7 @@ import { TRANSLATIONS, Language } from '../translations';
 import { calculatePanchangam } from '../panchangam';
 import { PanchangamDetails } from '../types';
 import { Calendar, AlertCircle, Printer, Download, Eye, X, Sun, Moon, Clock } from 'lucide-react';
+import { showToast } from './Toast';
 
 interface PanchangamSectionProps {
   language: Language;
@@ -358,7 +359,12 @@ export default function PanchangamSection({ language }: PanchangamSectionProps) 
               </button>
               <button
                 type="button"
-                onClick={() => alert(language === 'EN' ? 'PDF downloaded successfully to your local device downloads folder!' : 'పీడీఎఫ్ ఫైల్ మీ డివైస్ లో సేవ్ చేయబడింది!')}
+                onClick={() => showToast(
+                  language === 'EN'
+                    ? 'Panchangam PDF export is coming soon. Use your browser\'s Print → Save as PDF for now.'
+                    : 'పంచాంగం PDF ఎగుమతి తొందరలో వస్తుంది. ప్రస్తుతం బ్రౌజర్ Print → Save as PDF ఉపయోగించండి.',
+                  'info'
+                )}
                 className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 bg-[#7A1E1E] text-white hover:bg-[#5E1414] font-sans text-xs font-bold py-2 px-4 rounded-lg transition"
               >
                 <Download size={14} />

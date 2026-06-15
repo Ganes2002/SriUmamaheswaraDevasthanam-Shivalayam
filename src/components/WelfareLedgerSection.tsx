@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TRANSLATIONS, Language } from '../translations';
 import { DonorRecord, YearlyStat } from '../types';
 import { Search, Heart, Landmark, HelpCircle, FileText, AlertTriangle, Info, BookOpen } from 'lucide-react';
+import { showToast } from './Toast';
 
 interface WelfareLedgerSectionProps {
   language: Language;
@@ -295,7 +296,12 @@ export default function WelfareLedgerSection({
               
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <button
-                  onClick={() => alert(language === 'EN' ? `Access requested for ${selectedYear} signed log extracts. Please input credentials at Maintenance desk.` : `${selectedYear} ఆఫీస్ లాగ్స్ కొరకు కమిటీ దరఖాస్తు పూరించండి.`)}
+                  onClick={() => showToast(
+                    language === 'EN'
+                      ? `Request noted for ${selectedYear} records. Visit the Temple Office with a valid ID — a committee member will assist you.`
+                      : `${selectedYear} రికార్డుల అభ్యర్థన నమోదైంది. ఒక గుర్తింపు పత్రంతో ఆలయ కార్యాలయానికి వెళ్ళండి.`,
+                    'info'
+                  )}
                   className="bg-[#7A1E1E] text-white hover:bg-[#5E1414] text-xs font-bold font-sans py-2 px-4 rounded-xl transition"
                 >
                   {language === 'EN' ? "Request Certified Physical Extract" : "ధృవీకరించబడిన హార్డ్ కాపీ అభ్యర్థించండి"}
@@ -324,7 +330,12 @@ export default function WelfareLedgerSection({
                 
                 {/* Action Report download option */}
                 <button
-                  onClick={() => alert(language === 'EN' ? "Annual audited Trust report is queued for download automatically!" : "ఆడిటింగ్ ఫైనాన్షియల్ వార్షిక పత్రం డౌన్‌లోడ్ విజయవంతమైంది!")}
+                  onClick={() => showToast(
+                    language === 'EN'
+                      ? 'PDF report feature is coming soon. Please contact the committee for the latest certified audit document.'
+                      : 'PDF నివేదిక తొందరలో అందుబాటులోకి వస్తుంది. తాజా ఆడిట్ పత్రానికి కమిటీని సంప్రదించండి.',
+                    'info'
+                  )}
                   className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-[#7A1E1E] text-white hover:bg-[#5E1414] font-sans text-xs font-bold py-2.5 px-4 rounded-xl shadow transition"
                 >
                   <FileText size={14} />
