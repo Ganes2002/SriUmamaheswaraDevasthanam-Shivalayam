@@ -208,12 +208,21 @@ export async function saveTempleEmblemLibrary(library: TempleEmblemSlot[]): Prom
     return acc;
   }, {});
 
+  // Delete slides that were completely removed
   const toDelete = Object.keys(existingMap)
     .map(Number)
     .filter((id) => !presentIds.includes(id));
   if (toDelete.length > 0) {
     await supabase.from('temple_carousel_slides').delete().in('id', toDelete);
     await Promise.all(toDelete.map((id) => deleteFromStorage(existingMap[id])));
+  }
+
+  // Delete old Storage file when a slot's image URL is replaced with a new one
+  const replacedSlots = limited.filter(
+    (s) => existingMap[s.id] && existingMap[s.id] !== s.url
+  );
+  if (replacedSlots.length > 0) {
+    await Promise.all(replacedSlots.map((s) => deleteFromStorage(existingMap[s.id])));
   }
 
   if (limited.length > 0) {
