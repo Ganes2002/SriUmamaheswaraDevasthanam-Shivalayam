@@ -10,7 +10,7 @@ interface Props {
   language: Language;
 }
 
-type CacheStatus = 'idle' | 'api' | 'manual' | 'uncached';
+type CacheStatus = 'idle' | 'api' | 'manual' | 'self-calc' | 'uncached';
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -86,6 +86,7 @@ export default function AdminPanchangamEditor({ language }: Props) {
       const data = await calculatePanchangam(selectedDate);
       setForm(data);
       if (entry?.isManualOverride) setStatus('manual');
+      else if (entry?.source === 'self-calc') setStatus('self-calc');
       else if (entry) setStatus('api');
       else setStatus('uncached');
     } catch {
@@ -146,10 +147,11 @@ export default function AdminPanchangamEditor({ language }: Props) {
   };
 
   const statusConfig: Record<CacheStatus, { label: string; labelTE: string; color: string; icon: React.ReactNode }> = {
-    idle:     { label: 'No date loaded',  labelTE: 'తేదీ లోడ్ కాలేదు',     color: 'bg-stone-100 text-stone-500',    icon: <Calendar size={12} /> },
-    api:      { label: 'Live API Data',   labelTE: 'API నుండి డేటా',        color: 'bg-emerald-50 text-emerald-700', icon: <CheckCircle size={12} /> },
-    manual:   { label: 'Manual Override', labelTE: 'Manual Override',        color: 'bg-amber-50 text-amber-700',     icon: <AlertCircle size={12} /> },
-    uncached: { label: 'Not Yet Cached',  labelTE: 'Cache లేదు',             color: 'bg-blue-50 text-blue-700',       icon: <RefreshCw size={12} /> },
+    idle:       { label: 'No date loaded',      labelTE: 'తేదీ లోడ్ కాలేదు',         color: 'bg-stone-100 text-stone-500',    icon: <Calendar size={12} /> },
+    api:        { label: 'Live API Data',        labelTE: 'API నుండి డేటా',            color: 'bg-emerald-50 text-emerald-700', icon: <CheckCircle size={12} /> },
+    manual:     { label: 'Manual Override',      labelTE: 'Manual Override',            color: 'bg-amber-50 text-amber-700',     icon: <AlertCircle size={12} /> },
+    'self-calc':{ label: 'Self-Calculated',      labelTE: 'స్వయం లెక్కింపు',           color: 'bg-purple-50 text-purple-700',   icon: <RefreshCw size={12} /> },
+    uncached:   { label: 'Not Yet Cached',       labelTE: 'Cache లేదు',                color: 'bg-blue-50 text-blue-700',       icon: <RefreshCw size={12} /> },
   };
   const badge = statusConfig[status];
 
@@ -356,6 +358,14 @@ export default function AdminPanchangamEditor({ language }: Props) {
               {isTE
                 ? 'ఈ తేదీ manual డేటా ఉపయోగిస్తోంది. "Override తొలగించు" నొక్కితే తిరిగి API డేటా వస్తుంది.'
                 : 'This date uses manually entered data. Visitors see your values, not the API. Click "Clear Override" to restore live API data.'}
+            </p>
+          )}
+
+          {status === 'self-calc' && (
+            <p className="text-[11px] text-purple-700 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
+              {isTE
+                ? 'Prokerala API అందుబాటులో లేనప్పుడు Meeus గణనలు వాడారు. దయచేసి ఈ విలువలు తనిఖీ చేసి "Save as Manual Override" నొక్కండి.'
+                : 'Prokerala API was unavailable so values were computed using Meeus astronomical formulas (~95% accurate). Please verify and click "Save as Manual Override" to confirm or correct them.'}
             </p>
           )}
         </>

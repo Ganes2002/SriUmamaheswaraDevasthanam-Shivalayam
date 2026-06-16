@@ -306,13 +306,21 @@ serve(async (req) => {
       .maybeSingle()
 
     if (cached?.data) {
-      return new Response(JSON.stringify(cached.data), {
-        headers: {
-          ...CORS,
-          'Content-Type': 'application/json',
-          'X-Cache': cached.is_manual_override ? 'MANUAL' : 'HIT',
-        },
-      })
+      const isSelfCalc = !cached.is_manual_override && (cached.data as Record<string,unknown>)?._source === 'self-calc'
+
+      // Manual overrides and Prokerala-sourced entries are returned immediately.
+      // Self-calc entries attempt a Prokerala upgrade on every request so that
+      // when credits reset, the cache automatically upgrades to accurate API data.
+      if (!isSelfCalc) {
+        return new Response(JSON.stringify(cached.data), {
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json',
+            'X-Cache': cached.is_manual_override ? 'MANUAL' : 'HIT',
+          },
+        })
+      }
+      // Fall through to Prokerala attempt — will fall back to cached self-calc if it still fails
     }
 
     // ── Step 2: Try Prokerala (3 parallel calls) ───────────────────────────
@@ -399,22 +407,31 @@ serve(async (req) => {
         amritakalam:  amritSlots.length   > 0 ? fmtRange(amritSlots[0].start,   amritSlots[0].end)   : '',
       }
 
-      // Cache so all subsequent visitors for this date cost 0 Prokerala credits
-      await db.from('panchangam_cache').insert({
-        date, data: result, is_manual_override: false, cached_at: new Date().toISOString(),
-      }).then(({ error }) => {
-        if (error && error.code !== '23505') console.warn('[panchangam-fn] Cache write error:', error.message)
-      })
+      // Upsert so a prior self-calc entry gets replaced with accurate Prokerala data
+      const cacheRes = await db.from('panchangam_cache').upsert(
+        { date, data: result, is_manual_override: false, cached_at: new Date().toISOString() },
+        { onConflict: 'date' }
+      )
+      if (cacheRes.error) console.warn('[panchangam-fn] Cache write error:', cacheRes.error.message)
 
       return new Response(JSON.stringify(result), {
         headers: { ...CORS, 'Content-Type': 'application/json', 'X-Cache': 'MISS' },
       })
 
     } catch (prokeralaErr) {
-      // ── Step 3: Prokerala unavailable — fall back to Meeus self-calculation ─
+      // ── Step 3: Prokerala unavailable — use Meeus self-calculation ────────
       console.warn('[panchangam-fn] Prokerala failed — using self-calculation backup:', prokeralaErr)
       const result = selfCalculatePanchangam(date, parseFloat(lat), parseFloat(lng))
-      // NOT cached: next request retries Prokerala (allows auto-recovery when credits reset)
+
+      // Cache so the admin can see and edit the self-calc values.
+      // On future requests the cache check above will attempt a Prokerala upgrade,
+      // so once credits reset the entry is automatically replaced with accurate data.
+      const selfRes = await db.from('panchangam_cache').upsert(
+        { date, data: result, is_manual_override: false, cached_at: new Date().toISOString() },
+        { onConflict: 'date' }
+      )
+      if (selfRes.error) console.warn('[panchangam-fn] Self-calc cache write error:', selfRes.error.message)
+
       return new Response(JSON.stringify(result), {
         headers: {
           ...CORS,

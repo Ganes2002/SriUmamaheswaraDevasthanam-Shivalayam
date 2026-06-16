@@ -669,6 +669,8 @@ export interface PanchangamCacheEntry {
   data: PanchangamDetails;
   isManualOverride: boolean;
   cachedAt: string;
+  // 'prokerala' = live API data, 'self-calc' = Meeus fallback, 'manual' = admin override
+  source: 'prokerala' | 'self-calc' | 'manual';
 }
 
 export async function getPanchangamCacheEntry(date: string): Promise<PanchangamCacheEntry | null> {
@@ -678,11 +680,17 @@ export async function getPanchangamCacheEntry(date: string): Promise<PanchangamC
     .eq('date', date)
     .maybeSingle();
   if (error || !data) return null;
+  const raw = data.data as Record<string, unknown>;
+  const source: PanchangamCacheEntry['source'] =
+    data.is_manual_override ? 'manual'
+    : raw?._source === 'self-calc' ? 'self-calc'
+    : 'prokerala';
   return {
     date: data.date,
-    data: data.data as PanchangamDetails,
+    data: raw as unknown as PanchangamDetails,
     isManualOverride: data.is_manual_override,
     cachedAt: data.cached_at,
+    source,
   };
 }
 
