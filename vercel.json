@@ -2,8 +2,5 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install",
-  "toolbar": {
-    "enabled": false
-  }
+  "installCommand": "npm install"
 }
