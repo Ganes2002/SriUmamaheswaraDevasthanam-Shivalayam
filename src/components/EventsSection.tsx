@@ -6,9 +6,12 @@ import { Share2, Calendar, Clock, MapPin, Tag, Heart } from 'lucide-react';
 interface EventsSectionProps {
   language: Language;
   eventsList: EventItem[];
+  defaultEventImage?: string;
 }
 
-export default function EventsSection({ language, eventsList }: EventsSectionProps) {
+const DEFAULT_EVENT_IMG = 'https://images.unsplash.com/photo-1609137144814-7ebd5b40cfeb?auto=format&fit=crop&q=80&w=600';
+
+export default function EventsSection({ language, eventsList, defaultEventImage = DEFAULT_EVENT_IMG }: EventsSectionProps) {
   const t = (key: string) => {
     return TRANSLATIONS[key]?.[language] || key;
   };
@@ -82,7 +85,7 @@ export default function EventsSection({ language, eventsList }: EventsSectionPro
                   {/* Event Thumbnail Preview */}
                   <div className="relative h-48 bg-stone-200 overflow-hidden shrink-0">
                     <img 
-                      src={evt.imageUrl || "https://images.unsplash.com/photo-1609137144814-7ebd5b40cfeb?auto=format&fit=crop&q=80&w=600"} 
+                      src={evt.imageUrl || defaultEventImage}
                       alt={evt.titleEN}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"

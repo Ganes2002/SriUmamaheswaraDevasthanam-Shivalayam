@@ -123,12 +123,46 @@ const DEFAULT_ANNOUNCEMENT: Announcement = {
 // Replaces two separate global_settings queries with one — saves 1 round trip
 // on every page load. Individual getters still work (they use the same cache).
 
-export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifetimeCounter: number; whatsappLink: string }> {
+const DEFAULT_OPEN_TIME = '6:00 AM';
+const DEFAULT_CLOSE_TIME = '8:30 PM';
+const DEFAULT_EVENT_IMAGE = 'https://images.unsplash.com/photo-1609137144814-7ebd5b40cfeb?auto=format&fit=crop&q=80&w=600';
+const DEFAULT_PROFILE_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200';
+const DEFAULT_PROFILE_FEMALE = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
+
+export async function getGlobalSettings(): Promise<{
+  templeEmblem: string;
+  lifetimeCounter: number;
+  whatsappLink: string;
+  templeOpenTime: string;
+  templeCloseTime: string;
+  defaultEventImage: string;
+  defaultProfileMale: string;
+  defaultProfileFemale: string;
+}> {
   const cachedEmblem = cacheGet<string>('emblem');
   const cachedLifetime = cacheGet<number>('lifetime');
   const cachedWa = cacheGet<string>('walink');
-  if (cachedEmblem !== null && cachedLifetime !== null && cachedWa !== null) {
-    return { templeEmblem: cachedEmblem, lifetimeCounter: cachedLifetime, whatsappLink: cachedWa };
+  const cachedOpenTime = cacheGet<string>('opentime');
+  const cachedCloseTime = cacheGet<string>('closetime');
+  const cachedDefEventImg = cacheGet<string>('defeventimg');
+  const cachedDefMale = cacheGet<string>('defmale');
+  const cachedDefFemale = cacheGet<string>('deffemale');
+
+  if (
+    cachedEmblem !== null && cachedLifetime !== null && cachedWa !== null &&
+    cachedOpenTime !== null && cachedCloseTime !== null && cachedDefEventImg !== null &&
+    cachedDefMale !== null && cachedDefFemale !== null
+  ) {
+    return {
+      templeEmblem: cachedEmblem,
+      lifetimeCounter: cachedLifetime,
+      whatsappLink: cachedWa,
+      templeOpenTime: cachedOpenTime,
+      templeCloseTime: cachedCloseTime,
+      defaultEventImage: cachedDefEventImg,
+      defaultProfileMale: cachedDefMale,
+      defaultProfileFemale: cachedDefFemale,
+    };
   }
 
   const { data, error } = await supabase.from('global_settings').select('key, value');
@@ -141,11 +175,51 @@ export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifet
   const templeEmblem = map['primary_temple_emblem'] || DEFAULT_EMBLEM_URL;
   const lifetimeCounter = Number(map['lifetime_counter']) || 2852500;
   const whatsappLink = map['whatsapp_link'] || '';
+  const templeOpenTime = map['temple_open_time'] || DEFAULT_OPEN_TIME;
+  const templeCloseTime = map['temple_close_time'] || DEFAULT_CLOSE_TIME;
+  const defaultEventImage = map['default_event_image'] || DEFAULT_EVENT_IMAGE;
+  const defaultProfileMale = map['default_profile_male'] || DEFAULT_PROFILE_MALE;
+  const defaultProfileFemale = map['default_profile_female'] || DEFAULT_PROFILE_FEMALE;
 
   cacheSet('emblem', templeEmblem, TTL.long);
   cacheSet('lifetime', lifetimeCounter, TTL.short);
   cacheSet('walink', whatsappLink, TTL.long);
-  return { templeEmblem, lifetimeCounter, whatsappLink };
+  cacheSet('opentime', templeOpenTime, TTL.long);
+  cacheSet('closetime', templeCloseTime, TTL.long);
+  cacheSet('defeventimg', defaultEventImage, TTL.long);
+  cacheSet('defmale', defaultProfileMale, TTL.long);
+  cacheSet('deffemale', defaultProfileFemale, TTL.long);
+
+  return { templeEmblem, lifetimeCounter, whatsappLink, templeOpenTime, templeCloseTime, defaultEventImage, defaultProfileMale, defaultProfileFemale };
+}
+
+export async function saveTempleHours(openTime: string, closeTime: string): Promise<void> {
+  await supabase.from('global_settings').upsert([
+    { key: 'temple_open_time', value: openTime, updated_at: new Date().toISOString() },
+    { key: 'temple_close_time', value: closeTime, updated_at: new Date().toISOString() },
+  ], { onConflict: 'key' });
+  cacheBust('opentime');
+  cacheBust('closetime');
+  addLog(`Temple daily darshan timings updated: Open ${openTime} — Close ${closeTime}`, 'edit');
+}
+
+export async function saveDefaultEventImage(url: string): Promise<void> {
+  await supabase.from('global_settings').upsert(
+    { key: 'default_event_image', value: url, updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+  cacheBust('defeventimg');
+  addLog('Default temple event fallback image updated by admin.', 'edit');
+}
+
+export async function saveDefaultProfileIcons(maleUrl: string, femaleUrl: string): Promise<void> {
+  await supabase.from('global_settings').upsert([
+    { key: 'default_profile_male', value: maleUrl, updated_at: new Date().toISOString() },
+    { key: 'default_profile_female', value: femaleUrl, updated_at: new Date().toISOString() },
+  ], { onConflict: 'key' });
+  cacheBust('defmale');
+  cacheBust('deffemale');
+  addLog('Default profile icons (male/female) updated by admin.', 'edit');
 }
 
 // ─── Temple Emblem ────────────────────────────────────────────────────────────

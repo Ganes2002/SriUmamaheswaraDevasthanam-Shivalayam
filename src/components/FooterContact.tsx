@@ -3,12 +3,23 @@ import { TRANSLATIONS, Language } from '../translations';
 import { CommitteeMember } from '../types';
 import { Phone, Mail, MapPin, Shield } from 'lucide-react';
 
+const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200';
+const DEFAULT_FEMALE = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
+
 interface FooterContactProps {
   language: Language;
   committeeList: CommitteeMember[];
+  defaultProfileMale?: string;
+  defaultProfileFemale?: string;
 }
 
-export default function FooterContact({ language, committeeList }: FooterContactProps) {
+export default function FooterContact({ language, committeeList, defaultProfileMale = DEFAULT_MALE, defaultProfileFemale = DEFAULT_FEMALE }: FooterContactProps) {
+  const resolveAvatar = (imageUrl?: string) => {
+    if (!imageUrl) return defaultProfileMale;
+    if (imageUrl === '__MALE__') return defaultProfileMale;
+    if (imageUrl === '__FEMALE__') return defaultProfileFemale;
+    return imageUrl;
+  };
   const t = (key: string) => {
     return TRANSLATIONS[key]?.[language] || key;
   };
@@ -45,7 +56,7 @@ export default function FooterContact({ language, committeeList }: FooterContact
                 {/* Member Avatar */}
                 <div className="relative shrink-0">
                   <img
-                    src={mem.imageUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200"}
+                    src={resolveAvatar(mem.imageUrl)}
                     alt={mem.nameEN}
                     className="h-11 w-11 rounded-full object-cover border border-amber-300/35"
                     referrerPolicy="no-referrer"
