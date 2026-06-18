@@ -1,6 +1,7 @@
 import { PanchangamDetails } from './types';
 
-// ── Tithis (30 lunar days) ───────────────────────────────────────────────────
+// ── Lookup tables ─────────────────────────────────────────────────────────────
+
 const TITHIS = [
   { EN: "Shukla Prathama",    TE: "శుక్ల పాడ్యమి" },
   { EN: "Shukla Dwitiya",     TE: "శుక్ల విదియ" },
@@ -34,7 +35,6 @@ const TITHIS = [
   { EN: "Amavasya",           TE: "అమావాస్య" },
 ];
 
-// ── Nakshatrams (27 lunar mansions) ─────────────────────────────────────────
 const NAKSHATRAMS = [
   { EN: "Ashwini",          TE: "అశ్విని" },
   { EN: "Bharani",          TE: "భరణి" },
@@ -65,7 +65,6 @@ const NAKSHATRAMS = [
   { EN: "Revati",           TE: "రేవతి" },
 ];
 
-// ── 27 Yogams ────────────────────────────────────────────────────────────────
 const YOGAMS = [
   { EN: "Vishkamba",   TE: "విష్కంభ" },
   { EN: "Priti",       TE: "ప్రీతి" },
@@ -96,7 +95,7 @@ const YOGAMS = [
   { EN: "Vaidhriti",   TE: "వైధృతి" },
 ];
 
-// ── 11 Karanas ───────────────────────────────────────────────────────────────
+// Index order: Bava(0)…Vishti(6) = repeating, Shakuni(7), Chatushpada(8), Naga(9), Kimstughna(10)
 const KARANAS = [
   { EN: "Bava",         TE: "బవ" },
   { EN: "Balava",       TE: "బాలవ" },
@@ -111,7 +110,6 @@ const KARANAS = [
   { EN: "Kimstughna",   TE: "కిమ్స్తుఘ్నం" },
 ];
 
-// ── 12 Raashis ───────────────────────────────────────────────────────────────
 const RAASHIS = [
   { EN: "Mesha (Aries)",         TE: "మేషం" },
   { EN: "Vrishabha (Taurus)",    TE: "వృషభం" },
@@ -127,7 +125,6 @@ const RAASHIS = [
   { EN: "Meena (Pisces)",        TE: "మీనం" },
 ];
 
-// ── Telugu months (Maasam) ───────────────────────────────────────────────────
 const MAASAMS = [
   { EN: "Chaitra",     TE: "చైత్రం" },
   { EN: "Vaishakha",   TE: "వైశాఖం" },
@@ -143,7 +140,6 @@ const MAASAMS = [
   { EN: "Phalguna",    TE: "ఫాల్గుణం" },
 ];
 
-// ── 6 Seasons (Rutvu) ────────────────────────────────────────────────────────
 const RUTVUS = [
   { EN: "Vasanta (Spring)",  TE: "వసంత ఋతువు" },
   { EN: "Greeshma (Summer)", TE: "గ్రీష్మ ఋతువు" },
@@ -153,113 +149,68 @@ const RUTVUS = [
   { EN: "Shishira (Dewy)",   TE: "శిశిర ఋతువు" },
 ];
 
-// ── Samvatsara (60-year cycle): map Ugadi start date → samvatsara name ──────
 const SAMVATSARA_UGADI: Array<{ from: string; EN: string; TE: string }> = [
   { from: "2023-03-22", EN: "Shobhakritu",  TE: "శోభకృత్" },
   { from: "2024-04-09", EN: "Krodhi",       TE: "క్రోధి" },
   { from: "2025-03-30", EN: "Vishwavasu",   TE: "విశ్వావసు" },
-  { from: "2026-03-19", EN: "Parabhava",    TE: "పరాభవ" },  // confirmed by priest for June 2026
+  { from: "2026-03-19", EN: "Parabhava",    TE: "పరాభవ" },
   { from: "2027-04-07", EN: "Plavanga",     TE: "ప్లవంగ" },
   { from: "2028-03-27", EN: "Keelaka",      TE: "కీలక" },
 ];
 
-// ── Rahu / Yama / Gulika / Durmuhurtham by weekday (0=Sun … 6=Sat) ──────────
+// Weekday-based inauspicious times (0 = Sunday … 6 = Saturday)
+// Rahu Kalam and Gulika are recomputed from actual sunrise in the Meeus path;
+// durmuhurtham is kept as fixed weekday values (complex to compute from scratch).
 const WEEKDAY_RULES = [
-  { // Sunday
-    rahu:         "04:30 PM - 06:00 PM",
-    yama:         "12:00 PM - 01:30 PM",
-    gulika:       "03:00 PM - 04:30 PM",
-    durmuhurtham: "04:40 PM - 05:30 PM",
-  },
-  { // Monday
-    rahu:         "07:30 AM - 09:00 AM",
-    yama:         "10:30 AM - 12:00 PM",
-    gulika:       "01:30 PM - 03:00 PM",
-    durmuhurtham: "12:26 PM - 01:18 PM\n03:02 PM - 03:54 PM",
-  },
-  { // Tuesday
-    rahu:         "03:00 PM - 04:30 PM",
-    yama:         "09:00 AM - 10:30 AM",
-    gulika:       "12:00 PM - 01:30 PM",
-    durmuhurtham: "08:15 AM - 09:05 AM",
-  },
-  { // Wednesday
-    rahu:         "12:00 PM - 01:30 PM",
-    yama:         "07:30 AM - 09:00 AM",
-    gulika:       "10:30 AM - 12:00 PM",
-    durmuhurtham: "11:50 AM - 12:40 PM",
-  },
-  { // Thursday
-    rahu:         "01:30 PM - 03:00 PM",
-    yama:         "06:00 AM - 07:30 AM",
-    gulika:       "09:00 AM - 10:30 AM",
-    durmuhurtham: "10:10 AM - 11:00 AM",
-  },
-  { // Friday
-    rahu:         "10:30 AM - 12:00 PM",
-    yama:         "03:00 PM - 04:30 PM",
-    gulika:       "07:30 AM - 09:00 AM",
-    durmuhurtham: "08:45 AM - 09:35 AM\n10:58 AM - 11:50 AM",
-  },
-  { // Saturday
-    rahu:         "09:00 AM - 10:30 AM",
-    yama:         "01:30 PM - 03:00 PM",
-    gulika:       "06:00 AM - 07:30 AM",
-    durmuhurtham: "07:30 AM - 08:20 AM",
-  },
+  { durmuhurtham: "04:40 PM - 05:30 PM" },
+  { durmuhurtham: "12:26 PM - 01:18 PM\n03:02 PM - 03:54 PM" },
+  { durmuhurtham: "08:15 AM - 09:05 AM" },
+  { durmuhurtham: "11:50 AM - 12:40 PM" },
+  { durmuhurtham: "10:10 AM - 11:00 AM" },
+  { durmuhurtham: "08:45 AM - 09:35 AM\n10:58 AM - 11:50 AM" },
+  { durmuhurtham: "07:30 AM - 08:20 AM" },
 ];
 
-// ── Hardcoded accurate data (verified from priest / Drik Panchang) ────────────
-// Add more dates here as the priest shares them — these always take priority.
+// ── Hardcoded priest-verified data (always takes priority) ────────────────────
 const ACCURATE_PANCHANGAM: Record<string, PanchangamDetails> = {
   "2026-06-15": {
     date: "2026-06-15",
-    // Context
     samvatsaraEN: "Parabhava",    samvatsaraTE: "పరాభవ నామ సంవత్సరం",
     ayanamEN: "Uttarayanam",      ayanamTE: "ఉత్తరాయణం",
     rutvuEN: "Greeshma (Summer)", rutvuTE: "గ్రీష్మ ఋతువు",
     maasamEN: "Adhika Jyeshtha",  maasamTE: "అధిక జ్యేష్ట మాసం",
     pakshamEN: "Krishna (Bahula) Paksham", pakshamTE: "బహుళ పక్షం",
-    // Tithi (Amavasya until 9:15 AM, then Shukla Prathama)
     tithiEN: "Amavasya",          tithiTE: "అమావాస్య",
     tithiEndTime: "9:15 AM",
     tithiNextEN: "Shukla Prathama", tithiNextTE: "శుక్ల పాడ్యమి",
-    // Nakshatram (Mrigashira until 9:09 PM, then Ardra)
     nakshatramEN: "Mrigashira",   nakshatramTE: "మృగశిర",
     nakshatramEndTime: "9:09 PM",
     nakshatramNextEN: "Arudra",   nakshatramNextTE: "ఆర్ద్ర",
-    // Yogam (Shoola until 10:37 AM, then Ganda)
     yogamEN: "Shoola",            yogamTE: "శూలం",
     yogamEndTime: "10:37 AM",
     yogamNextEN: "Ganda",         yogamNextTE: "గండం",
-    // Karanam (Naga until 9:15 AM, then Kimstughna until 8:00 PM)
     karanamEN: "Naga",            karanamTE: "నాగవం",
     karanamEndTime: "9:15 AM",
     karanamNextEN: "Kimstughna",  karanamNextTE: "కిమ్స్తుఘ్నం",
-    // Rashi
     suryaRashiEN: "Vrishabha (Taurus)", suryaRashiTE: "వృషభం",
     chandraRashiEN: "Vrishabha (Taurus)", chandraRashiTE: "వృషభం",
-    // Inauspicious times
     rahuKalam:    "07:30 AM - 09:00 AM",
     yamagandam:   "10:30 AM - 12:00 PM",
     gulikaKalam:  "01:30 PM - 03:00 PM",
     durmuhurtham: "12:26 PM - 01:18 PM\n03:02 PM - 03:54 PM",
     varjyam:      "4:58 PM onwards",
-    // Auspicious
     amritakalam:  "12:57 PM - 02:26 PM",
-    // Sun times
     sunrise: "5:28 AM",
     sunset:  "6:30 PM",
-    // Special event
     specialDayEN: "Mithuna Sankramanam — Sun enters Gemini at 8:16 PM",
     specialDayTE: "మిథున సంక్రమణం — సూర్యుడు మిథున రాశిలో ప్రవేశం రా 8:16",
   },
 };
 
-// ── Helper: samvatsara for a date ─────────────────────────────────────────────
+// ── Context helpers (calendar fields not from Meeus) ─────────────────────────
+
 function getSamvatsara(dateStr: string): { EN: string; TE: string } {
-  const fallback = { EN: "Parabhava", TE: "పరాభవ" };
-  let result = fallback;
+  let result = { EN: "Parabhava", TE: "పరాభవ" };
   for (const row of SAMVATSARA_UGADI) {
     if (dateStr >= row.from) result = { EN: row.EN, TE: row.TE };
     else break;
@@ -267,185 +218,287 @@ function getSamvatsara(dateStr: string): { EN: string; TE: string } {
   return result;
 }
 
-// ── Helper: Ayanam ────────────────────────────────────────────────────────────
-// Uttarayanam: Jan 14 – Jul 16 | Dakshinayanam: Jul 16 – Jan 14
 function getAyanam(date: Date): { EN: string; TE: string } {
-  const m = date.getMonth() + 1; // 1-12
-  const d = date.getDate();
+  const m = date.getMonth() + 1, d = date.getDate();
   const uttara = (m > 1 && m < 7) || (m === 1 && d >= 14) || (m === 7 && d < 16);
   return uttara
     ? { EN: "Uttarayanam", TE: "ఉత్తరాయణం" }
     : { EN: "Dakshinayanam", TE: "దక్షిణాయణం" };
 }
 
-// ── Helper: Rutvu (season) ────────────────────────────────────────────────────
-// Each season ≈ 2 solar months. Boundaries are approximate.
 function getRutvu(date: Date): { EN: string; TE: string } {
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  // Vasanta: Mar 14 – May 14
-  if ((m === 3 && d >= 14) || m === 4 || (m === 5 && d < 14)) return RUTVUS[0];
-  // Greeshma: May 14 – Jul 16
-  if ((m === 5 && d >= 14) || m === 6 || (m === 7 && d < 16)) return RUTVUS[1];
-  // Varsha: Jul 16 – Sep 17
-  if ((m === 7 && d >= 16) || m === 8 || (m === 9 && d < 17)) return RUTVUS[2];
-  // Sharath: Sep 17 – Nov 17
+  const m = date.getMonth() + 1, d = date.getDate();
+  if ((m === 3 && d >= 14) || m === 4 || (m === 5 && d < 14))  return RUTVUS[0];
+  if ((m === 5 && d >= 14) || m === 6 || (m === 7 && d < 16))  return RUTVUS[1];
+  if ((m === 7 && d >= 16) || m === 8 || (m === 9 && d < 17))  return RUTVUS[2];
   if ((m === 9 && d >= 17) || m === 10 || (m === 11 && d < 17)) return RUTVUS[3];
-  // Hemanta: Nov 17 – Jan 14
   if ((m === 11 && d >= 17) || m === 12 || (m === 1 && d < 14)) return RUTVUS[4];
-  // Shishira: Jan 14 – Mar 14
   return RUTVUS[5];
 }
 
-// ── Helper: Maasam (Telugu month, approximate solar alignment) ─────────────
 function getMaasam(date: Date): { EN: string; TE: string } {
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  // Approximate boundaries (solar sankramanam dates)
-  if ((m === 4 && d >= 14) || (m === 5 && d < 14)) return MAASAMS[0]; // Chaitra
-  if ((m === 5 && d >= 14) || (m === 6 && d < 15)) return MAASAMS[1]; // Vaishakha
-  if ((m === 6 && d >= 15) || (m === 7 && d < 16)) return MAASAMS[2]; // Jyeshtha
-  if ((m === 7 && d >= 16) || (m === 8 && d < 17)) return MAASAMS[3]; // Ashadha
-  if ((m === 8 && d >= 17) || (m === 9 && d < 17)) return MAASAMS[4]; // Shravana
-  if ((m === 9 && d >= 17) || (m === 10 && d < 17)) return MAASAMS[5];// Bhadrapada
-  if ((m === 10 && d >= 17) || (m === 11 && d < 16)) return MAASAMS[6];// Ashwina
-  if ((m === 11 && d >= 16) || (m === 12 && d < 16)) return MAASAMS[7];// Kartika
-  if ((m === 12 && d >= 16) || (m === 1 && d < 14)) return MAASAMS[8]; // Margashira
-  if ((m === 1 && d >= 14) || (m === 2 && d < 13)) return MAASAMS[9];  // Pushya
-  if ((m === 2 && d >= 13) || (m === 3 && d < 14)) return MAASAMS[10]; // Magha
-  return MAASAMS[11]; // Phalguna
+  const m = date.getMonth() + 1, d = date.getDate();
+  if ((m === 4 && d >= 14) || (m === 5 && d < 14))  return MAASAMS[0];
+  if ((m === 5 && d >= 14) || (m === 6 && d < 15))  return MAASAMS[1];
+  if ((m === 6 && d >= 15) || (m === 7 && d < 16))  return MAASAMS[2];
+  if ((m === 7 && d >= 16) || (m === 8 && d < 17))  return MAASAMS[3];
+  if ((m === 8 && d >= 17) || (m === 9 && d < 17))  return MAASAMS[4];
+  if ((m === 9 && d >= 17) || (m === 10 && d < 17)) return MAASAMS[5];
+  if ((m === 10 && d >= 17) || (m === 11 && d < 16)) return MAASAMS[6];
+  if ((m === 11 && d >= 16) || (m === 12 && d < 16)) return MAASAMS[7];
+  if ((m === 12 && d >= 16) || (m === 1 && d < 14))  return MAASAMS[8];
+  if ((m === 1 && d >= 14) || (m === 2 && d < 13))   return MAASAMS[9];
+  if ((m === 2 && d >= 13) || (m === 3 && d < 14))   return MAASAMS[10];
+  return MAASAMS[11];
 }
 
-// ── Helper: Surya Rashi (approximate — exact date shifts year-to-year) ───────
 function getSuryaRashi(date: Date): { EN: string; TE: string } {
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  if ((m === 4 && d >= 14) || (m === 5 && d < 14)) return RAASHIS[0]; // Mesha
-  if ((m === 5 && d >= 14) || (m === 6 && d < 15)) return RAASHIS[1]; // Vrishabha
-  if ((m === 6 && d >= 15) || (m === 7 && d < 16)) return RAASHIS[2]; // Mithuna
-  if ((m === 7 && d >= 16) || (m === 8 && d < 17)) return RAASHIS[3]; // Karkataka
-  if ((m === 8 && d >= 17) || (m === 9 && d < 17)) return RAASHIS[4]; // Simha
-  if ((m === 9 && d >= 17) || (m === 10 && d < 17)) return RAASHIS[5]; // Kanya
-  if ((m === 10 && d >= 17) || (m === 11 && d < 16)) return RAASHIS[6]; // Tula
-  if ((m === 11 && d >= 16) || (m === 12 && d < 16)) return RAASHIS[7]; // Vrischika
-  if ((m === 12 && d >= 16) || (m === 1 && d < 14)) return RAASHIS[8]; // Dhanu
-  if ((m === 1 && d >= 14) || (m === 2 && d < 12)) return RAASHIS[9];  // Makara
-  if ((m === 2 && d >= 12) || (m === 3 && d < 14)) return RAASHIS[10]; // Kumbha
-  return RAASHIS[11]; // Meena
+  const m = date.getMonth() + 1, d = date.getDate();
+  if ((m === 4 && d >= 14) || (m === 5 && d < 14))  return RAASHIS[0];
+  if ((m === 5 && d >= 14) || (m === 6 && d < 15))  return RAASHIS[1];
+  if ((m === 6 && d >= 15) || (m === 7 && d < 16))  return RAASHIS[2];
+  if ((m === 7 && d >= 16) || (m === 8 && d < 17))  return RAASHIS[3];
+  if ((m === 8 && d >= 17) || (m === 9 && d < 17))  return RAASHIS[4];
+  if ((m === 9 && d >= 17) || (m === 10 && d < 17)) return RAASHIS[5];
+  if ((m === 10 && d >= 17) || (m === 11 && d < 16)) return RAASHIS[6];
+  if ((m === 11 && d >= 16) || (m === 12 && d < 16)) return RAASHIS[7];
+  if ((m === 12 && d >= 16) || (m === 1 && d < 14))  return RAASHIS[8];
+  if ((m === 1 && d >= 14) || (m === 2 && d < 12))   return RAASHIS[9];
+  if ((m === 2 && d >= 12) || (m === 3 && d < 14))   return RAASHIS[10];
+  return RAASHIS[11];
 }
 
-// ── Synchronous estimation (used as fallback when API is unavailable) ─────────
-export function estimatePanchangam(dateStr: string): PanchangamDetails {
-  // Always prefer priest-verified accurate data
-  if (ACCURATE_PANCHANGAM[dateStr]) return ACCURATE_PANCHANGAM[dateStr];
+// ── Meeus astronomical calculation ───────────────────────────────────────────
+// Replaces the old seed/hash approach with real planetary formulas.
+// Accuracy: tithi/nakshatra/yoga/karana within ~30 min of transitions.
 
-  const targetDate = new Date(dateStr);
-  const dayOfWeek  = targetDate.getDay(); // 0 = Sunday
+function _r(d: number) { return d * Math.PI / 180; }
+function _d(r: number) { return r * 180 / Math.PI; }
+function _m(n: number) { return ((n % 360) + 360) % 360; }
 
-  const yearSeed  = targetDate.getFullYear();
-  const monthSeed = targetDate.getMonth() + 1;
-  const daySeed   = targetDate.getDate();
-  const seed      = (yearSeed * 365 + monthSeed * 31 + daySeed) % 1000;
+// Julian Day Number for "YYYY-MM-DD" at 6 AM IST (= 00:30 UTC)
+function _jd(dateStr: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  let Y = y, M = m;
+  if (M <= 2) { Y--; M += 12; }
+  const A = Math.floor(Y / 100);
+  const B = 2 - A + Math.floor(A / 4);
+  return Math.floor(365.25 * (Y + 4716)) + Math.floor(30.6001 * (M + 1)) + d + 0.5 / 24 + B - 1524.5;
+}
 
-  // ── Pancha Anga estimation ─────────────────────────────────────────────────
-  const tithiIndex     = seed % TITHIS.length;
-  const tithi          = TITHIS[tithiIndex];
-  const nakshatramIndex= (seed * 7) % NAKSHATRAMS.length;
-  const nakshatram     = NAKSHATRAMS[nakshatramIndex];
-  const yogamIndex     = (seed * 3 + dayOfWeek * 4) % YOGAMS.length;
-  const yogam          = YOGAMS[yogamIndex];
-  const karanamIndex   = (seed * 5) % KARANAS.length;
-  const karanam        = KARANAS[karanamIndex];
+// Sun's tropical longitude (degrees)
+function _sunLon(jd: number): number {
+  const T  = (jd - 2451545.0) / 36525;
+  const L0 = _m(280.46646 + 36000.76983 * T);
+  const M  = _r(_m(357.52911 + 35999.05029 * T));
+  const C  = (1.914602 - 0.004817 * T) * Math.sin(M) + 0.019993 * Math.sin(2 * M) + 0.000289 * Math.sin(3 * M);
+  return _m(L0 + C);
+}
 
-  // Paksham from tithi
-  const paksham = tithiIndex < 15
-    ? { EN: "Shukla Paksham",           TE: "శుక్ల పక్షం" }
+// Moon's tropical longitude — 10-term Meeus approximation (~0.3° error)
+function _moonLon(jd: number): number {
+  const T  = (jd - 2451545.0) / 36525;
+  const Lp = _m(218.3164477 + 481267.88123421 * T);
+  const D  = _r(_m(297.8501921 + 445267.1114034 * T));
+  const M  = _r(_m(357.5291092 + 35999.0502909  * T));
+  const Mp = _r(_m(134.9633964 + 477198.8675055  * T));
+  const F  = _r(_m(93.2720950  + 483202.0175233  * T));
+  return _m(
+    Lp
+    + 6.2888 * Math.sin(Mp)
+    + 1.2740 * Math.sin(2 * D - Mp)
+    + 0.6583 * Math.sin(2 * D)
+    + 0.2136 * Math.sin(2 * Mp)
+    - 0.1851 * Math.sin(M)
+    - 0.1143 * Math.sin(2 * F)
+    + 0.0588 * Math.sin(2 * D - 2 * Mp)
+    + 0.0572 * Math.sin(2 * D - M - Mp)
+    + 0.0533 * Math.sin(2 * D + Mp)
+  );
+}
+
+// Lahiri ayanamsa: 23.853° at J2000.0, precessing ~50.3"/year
+function _ayan(jd: number): number {
+  return 23.853 + (jd - 2451545.0) * 50.3 / (3600 * 365.25);
+}
+
+// Sunrise and sunset in decimal IST hours
+function _sunriseSunset(jd: number, lat: number, lng: number): { riseH: number; setH: number } {
+  const T   = (jd - 2451545.0) / 36525;
+  const L0  = _m(280.46646 + 36000.76983 * T);
+  const M   = _r(_m(357.52911 + 35999.05029 * T));
+  const C   = 1.914602 * Math.sin(M) + 0.019993 * Math.sin(2 * M);
+  const sl  = _r(_m(L0 + C));
+  const eps = _r(23.4393 - 0.0130 * T);
+  const dec = Math.asin(Math.sin(eps) * Math.sin(sl));
+  const cosH = (Math.sin(_r(-0.8333)) - Math.sin(_r(lat)) * Math.sin(dec))
+             / (Math.cos(_r(lat)) * Math.cos(dec));
+  if (Math.abs(cosH) > 1) return { riseH: 6.0, setH: 18.0 };
+  const H = _d(Math.acos(cosH));
+  const y = Math.tan(eps / 2) ** 2;
+  const eqTime = 4 * _d(
+    y * Math.sin(2 * sl)
+    - 2 * 0.016708634 * Math.sin(M)
+    + 4 * 0.016708634 * y * Math.sin(M) * Math.cos(2 * sl)
+    - 0.5 * y * y * Math.sin(4 * sl)
+    - 1.25 * 0.016708634 * 0.016708634 * Math.sin(2 * M)
+  );
+  const noon = 12 - lng / 15 - eqTime / 60; // UTC solar noon
+  return { riseH: noon - H / 15 + 5.5, setH: noon + H / 15 + 5.5 }; // IST
+}
+
+// Format decimal IST hours as "H:MM AM/PM"
+function _fmtH(h: number): string {
+  const totalMin = Math.round(((h % 24) + 24) % 24 * 60);
+  const hh = Math.floor(totalMin / 60) % 24;
+  const mm = totalMin % 60;
+  return `${hh % 12 || 12}:${mm.toString().padStart(2, '0')} ${hh >= 12 ? 'PM' : 'AM'}`;
+}
+
+function _fmtRng(a: number, b: number): string { return `${_fmtH(a)} - ${_fmtH(b)}`; }
+
+// Map elongation-based karana index 0–59 → KARANAS array index
+function _karIdx(i60: number): number {
+  if (i60 === 0)  return 10; // Kimstughna
+  if (i60 === 57) return 7;  // Shakuni
+  if (i60 === 58) return 8;  // Chatushpada
+  if (i60 === 59) return 9;  // Naga
+  return (i60 - 1) % 7;      // cycles Bava…Vishti
+}
+
+// Part-of-day slot indices for Rahu Kalam / Yamagandam / Gulika (0=Sun … 6=Sat)
+const RAHU_SLOT   = [7, 1, 6, 4, 5, 3, 2];
+const YAMA_SLOT   = [4, 3, 2, 1, 0, 6, 5];
+const GULIKA_SLOT = [6, 5, 4, 3, 2, 1, 0];
+
+// ── Core Meeus calculation — returns all Pancha Anga values ──────────────────
+function meeusCalc(dateStr: string): Omit<PanchangamDetails,
+  'date' | 'samvatsaraEN' | 'samvatsaraTE' | 'ayanamEN' | 'ayanamTE' |
+  'rutvuEN' | 'rutvuTE' | 'maasamEN' | 'maasamTE' | 'suryaRashiEN' | 'suryaRashiTE'
+> {
+  const lat = parseFloat(import.meta.env.VITE_TEMPLE_LATITUDE  || '16.5062');
+  const lng = parseFloat(import.meta.env.VITE_TEMPLE_LONGITUDE || '80.6480');
+
+  const jd    = _jd(dateStr);
+  const ayan  = _ayan(jd);
+  const sunT  = _sunLon(jd);
+  const moonT = _moonLon(jd);
+  const sunS  = _m(sunT  - ayan); // sidereal
+  const moonS = _m(moonT - ayan); // sidereal
+
+  // ── Tithi ─────────────────────────────────────────────────────────────────
+  const elong = _m(moonT - sunT);
+  const tIdx  = Math.floor(elong / 12) % 30;
+  const nTIdx = (tIdx + 1) % 30;
+  const paksha = tIdx < 15
+    ? { EN: "Shukla Paksham", TE: "శుక్ల పక్షం" }
     : { EN: "Krishna (Bahula) Paksham", TE: "బహుళ పక్షం" };
+  const tithiEndH = 6 + ((12 - elong % 12) / 13.2) * 24;
 
-  // ── Weekday timing rules ───────────────────────────────────────────────────
-  const timingRule = WEEKDAY_RULES[dayOfWeek];
+  // ── Nakshatra ─────────────────────────────────────────────────────────────
+  const nakD  = 360 / 27;
+  const nIdx  = Math.floor(moonS / nakD) % 27;
+  const nNIdx = (nIdx + 1) % 27;
+  const nakEndH = 6 + ((nakD - moonS % nakD) / 13.2) * 24;
 
-  // ── Varjyam (estimated) ────────────────────────────────────────────────────
-  const varjyamH  = 7 + (seed % 10);
-  const varjyamM  = (seed * 11) % 60;
-  const varjyamH2 = varjyamH + 1;
-  const varjyamM2 = (varjyamM + 30) % 60;
-  const p0 = (n: number) => n.toString().padStart(2, '0');
-  const varjyam = `${p0(varjyamH)}:${p0(varjyamM)} PM - ${p0(varjyamH2)}:${p0(varjyamM2)} PM`;
+  // ── Yoga ──────────────────────────────────────────────────────────────────
+  const ySum  = _m(sunS + moonS);
+  const yIdx  = Math.floor(ySum / nakD) % 27;
+  const nYIdx = (yIdx + 1) % 27;
+  const yogaEndH = 6 + ((nakD - ySum % nakD) / 15.0) * 24;
 
-  // ── Amritakalam (estimated) ────────────────────────────────────────────────
-  const amritaH  = 10 + (seed % 6);
-  const amritaM  = (seed * 7) % 60;
-  const amritaH2 = amritaH + 1;
-  const amritaM2 = (amritaM + 36) % 60;
-  const amritakalam = `${p0(amritaH)}:${p0(amritaM)} AM - ${p0(amritaH2)}:${p0(amritaM2)} AM`;
+  // ── Karana ────────────────────────────────────────────────────────────────
+  const kIdx  = Math.floor(elong / 6) % 60;
+  const nKIdx = (kIdx + 1) % 60;
+  const karEndH = 6 + ((6 - elong % 6) / 13.2) * 24;
 
-  // ── Sunrise / Sunset (estimated from month) ───────────────────────────────
-  const sunriseMinutes = 28 + Math.sin((monthSeed / 12) * Math.PI * 2) * 14;
-  const sunriseHour    = 5  + Math.floor(sunriseMinutes / 60);
-  const sunriseMin     = Math.floor(Math.abs(sunriseMinutes) % 60);
-  const sunsetMinutes  = 30 + Math.sin((monthSeed / 12) * Math.PI * 2) * 20;
-  const sunsetHour     = 18 + Math.floor(sunsetMinutes / 60);
-  const sunsetMin      = Math.floor(Math.abs(sunsetMinutes) % 60);
+  // ── Chandra Rashi (from Moon's sidereal longitude) ────────────────────────
+  const chandraRashi = RAASHIS[Math.floor(moonS / 30) % 12];
 
-  // ── Context fields ────────────────────────────────────────────────────────
-  const samvatsara = getSamvatsara(dateStr);
-  const ayanam     = getAyanam(targetDate);
-  const rutvu      = getRutvu(targetDate);
-  const maasam     = getMaasam(targetDate);
-  const suryaRashi = getSuryaRashi(targetDate);
-  // Chandra Rashi changes every ~2.25 days — estimated from seed
-  const chandraRashi = RAASHIS[(seed * 2 + dayOfWeek) % RAASHIS.length];
+  // ── Sunrise / Sunset ──────────────────────────────────────────────────────
+  const { riseH, setH } = _sunriseSunset(jd, lat, lng);
+  const part = (setH - riseH) / 8;
+
+  // ── Weekday (0=Sun … 6=Sat) ───────────────────────────────────────────────
+  const wday = Math.floor(jd + 1.5) % 7;
+
+  const rahuS   = riseH + RAHU_SLOT[wday]   * part;
+  const yamaS   = riseH + YAMA_SLOT[wday]   * part;
+  const gulikaS = riseH + GULIKA_SLOT[wday] * part;
+
+  const cap = (h: number) => _fmtH(Math.min(h, 23.99));
 
   return {
-    date: dateStr,
-    samvatsaraEN: samvatsara.EN,   samvatsaraTE: samvatsara.TE + " నామ సంవత్సరం",
-    ayanamEN: ayanam.EN,           ayanamTE: ayanam.TE,
-    rutvuEN: rutvu.EN,             rutvuTE: rutvu.TE,
-    maasamEN: maasam.EN + " Masam",maasamTE: maasam.TE,
-    pakshamEN: paksham.EN,         pakshamTE: paksham.TE,
-    tithiEN: tithi.EN,             tithiTE: tithi.TE,
-    nakshatramEN: nakshatram.EN,   nakshatramTE: nakshatram.TE,
-    yogamEN: yogam.EN,             yogamTE: yogam.TE,
-    karanamEN: karanam.EN,         karanamTE: karanam.TE,
-    suryaRashiEN: suryaRashi.EN,   suryaRashiTE: suryaRashi.TE,
-    chandraRashiEN: chandraRashi.EN, chandraRashiTE: chandraRashi.TE,
-    rahuKalam:    timingRule.rahu,
-    yamagandam:   timingRule.yama,
-    gulikaKalam:  timingRule.gulika,
-    durmuhurtham: timingRule.durmuhurtham,
-    varjyam,
-    amritakalam,
-    sunrise: `${p0(sunriseHour)}:${p0(sunriseMin)} AM`,
-    sunset:  `${sunsetHour - 12}:${p0(sunsetMin)} PM`,
+    pakshamEN: paksha.EN,          pakshamTE: paksha.TE,
+    tithiEN:   TITHIS[tIdx].EN,    tithiTE:   TITHIS[tIdx].TE,
+    tithiEndTime: cap(tithiEndH),
+    tithiNextEN: TITHIS[nTIdx].EN, tithiNextTE: TITHIS[nTIdx].TE,
+    nakshatramEN:   NAKSHATRAMS[nIdx].EN,  nakshatramTE:   NAKSHATRAMS[nIdx].TE,
+    nakshatramEndTime: cap(nakEndH),
+    nakshatramNextEN: NAKSHATRAMS[nNIdx].EN, nakshatramNextTE: NAKSHATRAMS[nNIdx].TE,
+    yogamEN:  YOGAMS[yIdx].EN,  yogamTE:  YOGAMS[yIdx].TE,
+    yogamEndTime: cap(yogaEndH),
+    yogamNextEN: YOGAMS[nYIdx].EN, yogamNextTE: YOGAMS[nYIdx].TE,
+    karanamEN:  KARANAS[_karIdx(kIdx)].EN,  karanamTE:  KARANAS[_karIdx(kIdx)].TE,
+    karanamEndTime: cap(karEndH),
+    karanamNextEN: KARANAS[_karIdx(nKIdx)].EN, karanamNextTE: KARANAS[_karIdx(nKIdx)].TE,
+    chandraRashiEN: chandraRashi.EN,  chandraRashiTE: chandraRashi.TE,
+    sunrise: _fmtH(riseH),
+    sunset:  _fmtH(setH),
+    rahuKalam:    _fmtRng(rahuS,   rahuS   + part),
+    yamagandam:   _fmtRng(yamaS,   yamaS   + part),
+    gulikaKalam:  _fmtRng(gulikaS, gulikaS + part),
+    durmuhurtham: WEEKDAY_RULES[wday].durmuhurtham,
+    varjyam:      '',
+    amritakalam:  '',
   };
 }
 
-// ── Public async entry point ──────────────────────────────────────────────────
-// Priority: 1. Live Prokerala API (via Supabase Edge Function)
-//           2. Priest-verified hardcoded data (ACCURATE_PANCHANGAM)
-//           3. Estimation algorithm
-//
-// The estimation always runs first to build context fields (Samvatsara, Ayanam,
-// Rutvu, Maasam, Rashi) that the Prokerala API doesn't return — these are merged
-// with the live timing data from the API.
+// ── Public: synchronous estimation ───────────────────────────────────────────
+// Used as the final client-side fallback when both Prokerala and the Edge Function
+// are unreachable. Now powered by Meeus formulas instead of a seed/hash.
+export function estimatePanchangam(dateStr: string): PanchangamDetails {
+  if (ACCURATE_PANCHANGAM[dateStr]) return ACCURATE_PANCHANGAM[dateStr];
+
+  const targetDate  = new Date(dateStr);
+  const samvatsara  = getSamvatsara(dateStr);
+  const ayanam      = getAyanam(targetDate);
+  const rutvu       = getRutvu(targetDate);
+  const maasam      = getMaasam(targetDate);
+  const suryaRashi  = getSuryaRashi(targetDate);
+
+  const astro = meeusCalc(dateStr);
+
+  return {
+    date: dateStr,
+    samvatsaraEN: samvatsara.EN,          samvatsaraTE: samvatsara.TE + ' నామ సంవత్సరం',
+    ayanamEN:     ayanam.EN,              ayanamTE:     ayanam.TE,
+    rutvuEN:      rutvu.EN,               rutvuTE:      rutvu.TE,
+    maasamEN:     maasam.EN + ' Masam',   maasamTE:     maasam.TE,
+    suryaRashiEN: suryaRashi.EN,          suryaRashiTE: suryaRashi.TE,
+    ...astro,
+  };
+}
+
+// ── Public: async entry point ─────────────────────────────────────────────────
+// Priority order:
+//   1. DB-cached Prokerala data     (served by Edge Function, X-Cache: HIT)
+//   2. Live Prokerala API           (Edge Function calls Prokerala, X-Cache: MISS)
+//   3. Edge Function Meeus fallback (when Prokerala credits exhausted, X-Cache: SELF-CALC)
+//   4. Client-side Meeus estimate   (when Edge Function itself is unreachable)
 export async function calculatePanchangam(dateStr: string): Promise<PanchangamDetails> {
-  // Step 1: build the estimation baseline (also serves as fallback)
   const estimated = estimatePanchangam(dateStr);
 
-  // Step 2: if Supabase URL is configured, try the live API
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   if (supabaseUrl && !supabaseUrl.includes('your-project-id')) {
     try {
-      // Lazy-import so the API module is not loaded when API is not configured
       const { fetchFromProkerala } = await import('./lib/panchangamApi');
       const live = await fetchFromProkerala(dateStr, estimated);
       if (live) return live;
     } catch (err) {
-      console.warn('[Panchangam] Live API unavailable, using estimate:', err);
+      console.warn('[Panchangam] Edge Function unreachable, using Meeus client estimate:', err);
     }
   }
 
-  // Fallback: estimation (includes hardcoded data for specific dates)
   return estimated;
 }

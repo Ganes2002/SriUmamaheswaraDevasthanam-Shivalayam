@@ -28,6 +28,7 @@ import AdminCommitteeManager from './admin/AdminCommitteeManager';
 import AdminLogsViewer from './admin/AdminLogsViewer';
 import AdminTempleEmblemForm from './admin/AdminTempleEmblemForm';
 import AdminPanchangamEditor from './admin/AdminPanchangamEditor';
+import AdminDefaultAssetsForm from './admin/AdminDefaultAssetsForm';
 
 interface AdminPanelProps {
   language: Language;
@@ -39,6 +40,14 @@ interface AdminPanelProps {
   onUpdateTempleEmblemLibrary: (list: TempleEmblemSlot[]) => void;
   whatsappLink: string;
   onUpdateWhatsappLink: (link: string) => void;
+  templeOpenTime: string;
+  templeCloseTime: string;
+  onUpdateTempleHours: (open: string, close: string) => void;
+  defaultEventImage: string;
+  onUpdateDefaultEventImage: (url: string) => void;
+  defaultProfileMale: string;
+  defaultProfileFemale: string;
+  onUpdateDefaultProfileIcons: (maleUrl: string, femaleUrl: string) => void;
   announcement: Announcement;
   onUpdateAnnouncement: (ann: Announcement) => void;
   eventsList: EventItem[];
@@ -71,6 +80,14 @@ export default function AdminPanel({
   onUpdateTempleEmblemLibrary,
   whatsappLink,
   onUpdateWhatsappLink,
+  templeOpenTime,
+  templeCloseTime,
+  onUpdateTempleHours,
+  defaultEventImage,
+  onUpdateDefaultEventImage,
+  defaultProfileMale,
+  defaultProfileFemale,
+  onUpdateDefaultProfileIcons,
   announcement,
   onUpdateAnnouncement,
   eventsList,
@@ -433,14 +450,27 @@ export default function AdminPanel({
             {/* Sub-component: Panchangam Editor & Override */}
             <AdminPanchangamEditor language={language} />
 
-            {/* Sub-component 1: Ticker Announcement Text Form */}
+            {/* Sub-component 1: Ticker Announcement Text Form + Temple Hours + WhatsApp */}
             <AdminAnnouncementForm
               language={language}
               announcement={announcement}
               onUpdateAnnouncement={onUpdateAnnouncement}
               whatsappLink={whatsappLink}
               onUpdateWhatsappLink={onUpdateWhatsappLink}
+              templeOpenTime={templeOpenTime}
+              templeCloseTime={templeCloseTime}
+              onUpdateTempleHours={onUpdateTempleHours}
               t={t}
+            />
+
+            {/* Sub-component: Default Assets — event image + profile icons */}
+            <AdminDefaultAssetsForm
+              language={language}
+              defaultEventImage={defaultEventImage}
+              onUpdateDefaultEventImage={onUpdateDefaultEventImage}
+              defaultProfileMale={defaultProfileMale}
+              defaultProfileFemale={defaultProfileFemale}
+              onUpdateDefaultProfileIcons={onUpdateDefaultProfileIcons}
             />
 
             {/* Sub-component 2: Record trust donations */}
@@ -477,12 +507,14 @@ export default function AdminPanel({
             />
 
             {/* Sub-component 6: Temple Committee Members Roll & Contacts */}
-            <AdminCommitteeManager 
+            <AdminCommitteeManager
               language={language}
               committeeList={committeeList}
               onUpdateCommittee={onUpdateCommittee}
               loggedInAdmin={loggedInAdmin}
               setLoggedInAdmin={setLoggedInAdmin}
+              defaultProfileMale={defaultProfileMale}
+              defaultProfileFemale={defaultProfileFemale}
             />
 
             {/* Sub-component 7: System Midnight Logs trail viewer */}

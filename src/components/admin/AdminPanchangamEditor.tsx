@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Save, Trash2, RefreshCw, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, Save, Trash2, RefreshCw, CheckCircle, AlertCircle, Loader2, PenLine } from 'lucide-react';
 import { Language } from '../../translations';
 import { PanchangamDetails } from '../../types';
 import { calculatePanchangam } from '../../panchangam';
@@ -10,9 +10,28 @@ interface Props {
   language: Language;
 }
 
-type CacheStatus = 'idle' | 'api' | 'manual' | 'uncached';
+type CacheStatus = 'idle' | 'api' | 'manual' | 'self-calc' | 'uncached';
 
 const today = new Date().toISOString().split('T')[0];
+
+const BLANK_FORM: PanchangamDetails = {
+  date: today,
+  samvatsaraEN: '', samvatsaraTE: '',
+  ayanamEN: '', ayanamTE: '',
+  rutvuEN: '', rutvuTE: '',
+  maasamEN: '', maasamTE: '',
+  pakshamEN: '', pakshamTE: '',
+  tithiEN: '', tithiTE: '', tithiEndTime: '', tithiNextEN: '', tithiNextTE: '',
+  nakshatramEN: '', nakshatramTE: '', nakshatramEndTime: '', nakshatramNextEN: '', nakshatramNextTE: '',
+  yogamEN: '', yogamTE: '', yogamEndTime: '', yogamNextEN: '', yogamNextTE: '',
+  karanamEN: '', karanamTE: '', karanamEndTime: '', karanamNextEN: '', karanamNextTE: '',
+  suryaRashiEN: '', suryaRashiTE: '',
+  chandraRashiEN: '', chandraRashiTE: '',
+  sunrise: '', sunset: '',
+  rahuKalam: '', yamagandam: '', gulikaKalam: '', durmuhurtham: '',
+  varjyam: '', amritakalam: '',
+  specialDayEN: '', specialDayTE: '',
+};
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -48,22 +67,42 @@ export default function AdminPanchangamEditor({ language }: Props) {
     setForm(prev => prev ? { ...prev, [field]: value } : prev);
   };
 
+  const changeDate = (val: string) => {
+    setSelectedDate(val);
+    setStatus('idle');
+    setForm(null);
+  };
+
+  const quickDate = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    changeDate(d.toISOString().split('T')[0]);
+  };
+
   const handleLoad = async () => {
     setLoading(true);
     try {
-      // Check DB first to know the override status
       const entry = await getPanchangamCacheEntry(selectedDate);
-      // Load the actual data (triggers Edge Function → Prokerala if uncached)
       const data = await calculatePanchangam(selectedDate);
       setForm(data);
       if (entry?.isManualOverride) setStatus('manual');
+      else if (entry?.source === 'self-calc') setStatus('self-calc');
       else if (entry) setStatus('api');
       else setStatus('uncached');
     } catch {
-      showToast(language === 'EN' ? 'Failed to load panchangam data.' : 'డేటా లోడ్ కాలేదు.', 'error');
+      showToast(
+        language === 'EN' ? 'Failed to load panchangam data.' : 'డేటా లోడ్ కాలేదు.',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  // Show a blank form for the selected date so the priest can enter all values manually
+  const handleScratch = () => {
+    setForm({ ...BLANK_FORM, date: selectedDate });
+    setStatus('uncached');
   };
 
   const handleSave = async () => {
@@ -86,16 +125,18 @@ export default function AdminPanchangamEditor({ language }: Props) {
   };
 
   const handleClear = async () => {
-    if (!confirm(language === 'EN'
-      ? `Clear manual override for ${selectedDate}? The API data will be used next time.`
-      : `${selectedDate} మాన్యువల్ ఓవర్‌రైడ్ తొలగించాలా? తదుపరి API డేటా వస్తుంది.`
+    if (!confirm(
+      language === 'EN'
+        ? `Clear manual override for ${selectedDate}? The API data will be used next time.`
+        : `${selectedDate} manual override తొలగించాలా? తదుపరి API డేటా వస్తుంది.`
     )) return;
     setSaving(true);
     try {
       await clearPanchangamOverride(selectedDate);
       setStatus('uncached');
+      setForm(null);
       showToast(
-        language === 'EN' ? 'Override cleared. API data will refresh.' : 'ఓవర్‌రైడ్ తొలగించబడింది.',
+        language === 'EN' ? 'Override cleared. API data will refresh.' : 'Override తొలగించబడింది.',
         'success'
       );
     } catch {
@@ -105,16 +146,20 @@ export default function AdminPanchangamEditor({ language }: Props) {
     }
   };
 
-  const statusBadge: Record<CacheStatus, { label: string; labelTE: string; color: string; icon: React.ReactNode }> = {
-    idle:     { label: 'No date loaded',   labelTE: 'తేదీ లోడ్ కాలేదు',          color: 'bg-stone-100 text-stone-500',   icon: <Calendar size={12} /> },
-    api:      { label: 'Live API Data',     labelTE: 'API నుండి డేటా',             color: 'bg-emerald-50 text-emerald-700', icon: <CheckCircle size={12} /> },
-    manual:   { label: 'Manual Override',   labelTE: 'మాన్యువల్ ఓవర్‌రైడ్',        color: 'bg-amber-50 text-amber-700',    icon: <AlertCircle size={12} /> },
-    uncached: { label: 'Not Yet Cached',    labelTE: 'కాష్ అవ్వలేదు',              color: 'bg-blue-50 text-blue-700',      icon: <RefreshCw size={12} /> },
+  const statusConfig: Record<CacheStatus, { label: string; labelTE: string; color: string; icon: React.ReactNode }> = {
+    idle:       { label: 'No date loaded',      labelTE: 'తేదీ లోడ్ కాలేదు',         color: 'bg-stone-100 text-stone-500',    icon: <Calendar size={12} /> },
+    api:        { label: 'Live API Data',        labelTE: 'API నుండి డేటా',            color: 'bg-emerald-50 text-emerald-700', icon: <CheckCircle size={12} /> },
+    manual:     { label: 'Manual Override',      labelTE: 'Manual Override',            color: 'bg-amber-50 text-amber-700',     icon: <AlertCircle size={12} /> },
+    'self-calc':{ label: 'Self-Calculated',      labelTE: 'స్వయం లెక్కింపు',           color: 'bg-purple-50 text-purple-700',   icon: <RefreshCw size={12} /> },
+    uncached:   { label: 'Not Yet Cached',       labelTE: 'Cache లేదు',                color: 'bg-blue-50 text-blue-700',       icon: <RefreshCw size={12} /> },
   };
-  const badge = statusBadge[status];
+  const badge = statusConfig[status];
+
+  const isTE = language === 'TE';
 
   return (
     <div className="bg-white border border-amber-200 rounded-3xl p-6 space-y-5 shadow-sm">
+
       {/* Header */}
       <div className="flex items-center space-x-3 border-b border-amber-100 pb-4">
         <div className="p-2 bg-amber-50 rounded-xl border border-amber-200">
@@ -122,29 +167,54 @@ export default function AdminPanchangamEditor({ language }: Props) {
         </div>
         <div>
           <h4 className="font-serif font-bold text-stone-900 text-sm">
-            {language === 'EN' ? 'Panchangam Editor' : 'పంచాంగం సంపాదకుడు'}
+            {isTE ? 'పంచాంగం సంపాదకుడు' : 'Panchangam Editor'}
           </h4>
           <p className="text-[10px] text-stone-500">
-            {language === 'EN'
-              ? 'View or override panchangam data for any date. Manual values take priority over the API.'
-              : 'ఏ తేదీకైనా పంచాంగం డేటాను చూడండి లేదా సవరించండి. మాన్యువల్ విలువలు API కంటే ముందు వస్తాయి.'}
+            {isTE
+              ? 'ఏ తేదీకైనా పంచాంగం డేటాను చూడండి లేదా సవరించండి.'
+              : 'Select any date, load from API or enter fresh values, then save as override.'}
           </p>
         </div>
       </div>
 
-      {/* Date picker + load */}
+      {/* Quick date buttons */}
+      <div className="flex flex-wrap gap-2">
+        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider self-center mr-1">
+          {isTE ? 'త్వరగా ఎంచుకోండి:' : 'Quick select:'}
+        </span>
+        {[
+          { label: isTE ? 'నేడు'      : 'Today',     offset: 0  },
+          { label: isTE ? 'రేపు'      : 'Tomorrow',  offset: 1  },
+          { label: isTE ? '+7 రోజులు' : '+7 Days',   offset: 7  },
+          { label: isTE ? '+30 రోజులు': '+30 Days',  offset: 30 },
+          { label: isTE ? '-1 రోజు'   : 'Yesterday', offset: -1 },
+        ].map(({ label, offset }) => (
+          <button
+            key={offset}
+            type="button"
+            onClick={() => quickDate(offset)}
+            className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-300 text-stone-600 hover:text-[#7A1E1E] transition cursor-pointer"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Date picker + action buttons */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-            {language === 'EN' ? 'Select Date' : 'తేదీ ఎంచుకోండి'}
+            {isTE ? 'తేదీ ఎంచుకోండి' : 'Select Date'}
           </label>
           <input
             type="date"
             value={selectedDate}
-            onChange={e => { setSelectedDate(e.target.value); setStatus('idle'); setForm(null); }}
+            onChange={e => changeDate(e.target.value)}
             className="border border-stone-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400 bg-white"
           />
         </div>
+
+        {/* Load from API */}
         <button
           type="button"
           onClick={handleLoad}
@@ -152,89 +222,109 @@ export default function AdminPanchangamEditor({ language }: Props) {
           className="flex items-center space-x-2 px-4 py-2 bg-[#7A1E1E] text-white rounded-xl text-xs font-bold hover:bg-[#5E1414] disabled:opacity-50 transition cursor-pointer disabled:cursor-not-allowed"
         >
           {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-          <span>{loading ? (language === 'EN' ? 'Loading...' : 'లోడ్ అవుతోంది...') : (language === 'EN' ? 'Load Data' : 'డేటా లోడ్')}</span>
+          <span>{loading ? (isTE ? 'లోడ్ అవుతోంది...' : 'Loading...') : (isTE ? 'API నుండి లోడ్' : 'Load from API')}</span>
+        </button>
+
+        {/* Enter from scratch */}
+        <button
+          type="button"
+          onClick={handleScratch}
+          disabled={loading}
+          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition cursor-pointer disabled:cursor-not-allowed"
+        >
+          <PenLine size={13} />
+          <span>{isTE ? 'స్వయంగా నమోదు చేయండి' : 'Enter Manually'}</span>
         </button>
 
         {/* Status badge */}
         <span className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold ${badge.color}`}>
           {badge.icon}
-          <span>{language === 'EN' ? badge.label : badge.labelTE}</span>
+          <span>{isTE ? badge.labelTE : badge.label}</span>
         </span>
       </div>
 
-      {/* Form — only shown after loading */}
+      {/* Helper text when no form loaded */}
+      {!form && (
+        <div className="text-[11px] text-stone-400 bg-stone-50 border border-stone-100 rounded-xl px-4 py-3 text-center">
+          {isTE
+            ? 'పై నుండి తేదీ ఎంచుకోండి, తర్వాత "API నుండి లోడ్" లేదా "స్వయంగా నమోదు చేయండి" నొక్కండి.'
+            : 'Pick a date above, then click "Load from API" to fetch calculated values — or click "Enter Manually" to type all values yourself from scratch.'}
+        </div>
+      )}
+
+      {/* Edit form — shown after load or enter-manually */}
       {form && (
         <>
           <div className="space-y-3">
-            <Section title={language === 'EN' ? 'Calendar Context' : 'పంచాంగం సందర్భం'}>
+            <Section title={isTE ? 'పంచాంగం సందర్భం' : 'Calendar Context'}>
               <Field label="Samvatsara (EN)" value={form.samvatsaraEN} onChange={set('samvatsaraEN')} />
-              <Field label="సంవత్సరం (TE)" value={form.samvatsaraTE} onChange={set('samvatsaraTE')} />
+              <Field label="Samvatsara (TE)" value={form.samvatsaraTE} onChange={set('samvatsaraTE')} />
               <Field label="Ayanam (EN)" value={form.ayanamEN} onChange={set('ayanamEN')} />
-              <Field label="ఆయనం (TE)" value={form.ayanamTE} onChange={set('ayanamTE')} />
+              <Field label="Ayanam (TE)" value={form.ayanamTE} onChange={set('ayanamTE')} />
               <Field label="Rutvu / Season (EN)" value={form.rutvuEN} onChange={set('rutvuEN')} />
-              <Field label="ఋతువు (TE)" value={form.rutvuTE} onChange={set('rutvuTE')} />
+              <Field label="Rutvu (TE)" value={form.rutvuTE} onChange={set('rutvuTE')} />
               <Field label="Maasam / Month (EN)" value={form.maasamEN} onChange={set('maasamEN')} />
-              <Field label="మాసం (TE)" value={form.maasamTE} onChange={set('maasamTE')} />
+              <Field label="Maasam (TE)" value={form.maasamTE} onChange={set('maasamTE')} />
               <Field label="Paksham (EN)" value={form.pakshamEN} onChange={set('pakshamEN')} />
-              <Field label="పక్షం (TE)" value={form.pakshamTE} onChange={set('pakshamTE')} />
+              <Field label="Paksham (TE)" value={form.pakshamTE} onChange={set('pakshamTE')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Tithi' : 'తిథి'}>
+            <Section title={isTE ? 'తిథి' : 'Tithi'}>
               <Field label="Tithi (EN)" value={form.tithiEN} onChange={set('tithiEN')} />
-              <Field label="తిథి (TE)" value={form.tithiTE} onChange={set('tithiTE')} />
+              <Field label="Tithi (TE)" value={form.tithiTE} onChange={set('tithiTE')} />
               <Field label="End Time (e.g. 9:15 AM)" value={form.tithiEndTime ?? ''} onChange={set('tithiEndTime')} />
               <Field label="Next Tithi (EN)" value={form.tithiNextEN ?? ''} onChange={set('tithiNextEN')} />
-              <Field label="తదుపరి తిథి (TE)" value={form.tithiNextTE ?? ''} onChange={set('tithiNextTE')} />
+              <Field label="Next Tithi (TE)" value={form.tithiNextTE ?? ''} onChange={set('tithiNextTE')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Nakshatram' : 'నక్షత్రం'}>
+            <Section title={isTE ? 'నక్షత్రం' : 'Nakshatram'}>
               <Field label="Nakshatram (EN)" value={form.nakshatramEN} onChange={set('nakshatramEN')} />
-              <Field label="నక్షత్రం (TE)" value={form.nakshatramTE} onChange={set('nakshatramTE')} />
+              <Field label="Nakshatram (TE)" value={form.nakshatramTE} onChange={set('nakshatramTE')} />
               <Field label="End Time" value={form.nakshatramEndTime ?? ''} onChange={set('nakshatramEndTime')} />
               <Field label="Next Nakshatram (EN)" value={form.nakshatramNextEN ?? ''} onChange={set('nakshatramNextEN')} />
-              <Field label="తదుపరి నక్షత్రం (TE)" value={form.nakshatramNextTE ?? ''} onChange={set('nakshatramNextTE')} />
+              <Field label="Next Nakshatram (TE)" value={form.nakshatramNextTE ?? ''} onChange={set('nakshatramNextTE')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Yogam' : 'యోగం'}>
+            <Section title={isTE ? 'యోగం' : 'Yogam'}>
               <Field label="Yogam (EN)" value={form.yogamEN} onChange={set('yogamEN')} />
-              <Field label="యోగం (TE)" value={form.yogamTE} onChange={set('yogamTE')} />
+              <Field label="Yogam (TE)" value={form.yogamTE} onChange={set('yogamTE')} />
               <Field label="End Time" value={form.yogamEndTime ?? ''} onChange={set('yogamEndTime')} />
               <Field label="Next Yogam (EN)" value={form.yogamNextEN ?? ''} onChange={set('yogamNextEN')} />
-              <Field label="తదుపరి యోగం (TE)" value={form.yogamNextTE ?? ''} onChange={set('yogamNextTE')} />
+              <Field label="Next Yogam (TE)" value={form.yogamNextTE ?? ''} onChange={set('yogamNextTE')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Karanam' : 'కరణం'}>
+            <Section title={isTE ? 'కరణం' : 'Karanam'}>
               <Field label="Karanam (EN)" value={form.karanamEN} onChange={set('karanamEN')} />
-              <Field label="కరణం (TE)" value={form.karanamTE} onChange={set('karanamTE')} />
+              <Field label="Karanam (TE)" value={form.karanamTE} onChange={set('karanamTE')} />
               <Field label="End Time" value={form.karanamEndTime ?? ''} onChange={set('karanamEndTime')} />
               <Field label="Next Karanam (EN)" value={form.karanamNextEN ?? ''} onChange={set('karanamNextEN')} />
-              <Field label="తదుపరి కరణం (TE)" value={form.karanamNextTE ?? ''} onChange={set('karanamNextTE')} />
+              <Field label="Next Karanam (TE)" value={form.karanamNextTE ?? ''} onChange={set('karanamNextTE')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Rashi' : 'రాశి'}>
+            <Section title={isTE ? 'రాశి' : 'Rashi'}>
               <Field label="Surya Rashi (EN)" value={form.suryaRashiEN} onChange={set('suryaRashiEN')} />
-              <Field label="సూర్య రాశి (TE)" value={form.suryaRashiTE} onChange={set('suryaRashiTE')} />
+              <Field label="Surya Rashi (TE)" value={form.suryaRashiTE} onChange={set('suryaRashiTE')} />
               <Field label="Chandra Rashi (EN)" value={form.chandraRashiEN} onChange={set('chandraRashiEN')} />
-              <Field label="చంద్ర రాశి (TE)" value={form.chandraRashiTE} onChange={set('chandraRashiTE')} />
+              <Field label="Chandra Rashi (TE)" value={form.chandraRashiTE} onChange={set('chandraRashiTE')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Sun & Inauspicious Times' : 'సూర్యోదయం & అశుభ సమయాలు'}>
+            <Section title={isTE ? 'సూర్యోదయం & అశుభ సమయాలు' : 'Sun & Inauspicious Times'}>
               <Field label="Sunrise" value={form.sunrise} onChange={set('sunrise')} />
               <Field label="Sunset" value={form.sunset} onChange={set('sunset')} />
               <Field label="Rahu Kalam" value={form.rahuKalam} onChange={set('rahuKalam')} />
               <Field label="Yamagandam" value={form.yamagandam} onChange={set('yamagandam')} />
               <Field label="Gulika Kalam" value={form.gulikaKalam} onChange={set('gulikaKalam')} />
-              <Field label="Durmuhurtham (use ↵ for 2 slots)" value={form.durmuhurtham} onChange={set('durmuhurtham')} />
+              <Field label="Durmuhurtham (use Enter for 2 slots)" value={form.durmuhurtham} onChange={set('durmuhurtham')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Auspicious Times' : 'శుభ సమయాలు'}>
+            <Section title={isTE ? 'శుభ సమయాలు' : 'Auspicious Times'}>
               <Field label="Varjyam" value={form.varjyam} onChange={set('varjyam')} />
               <Field label="Amritakalam" value={form.amritakalam} onChange={set('amritakalam')} />
             </Section>
 
-            <Section title={language === 'EN' ? 'Special Day (optional)' : 'ప్రత్యేక దినం (ఐచ్ఛికం)'}>
+            <Section title={isTE ? 'ప్రత్యేక దినం (ఐచ్ఛికం)' : 'Special Day (optional)'}>
               <Field label="Special Day (EN)" value={form.specialDayEN ?? ''} onChange={set('specialDayEN')} />
-              <Field label="ప్రత్యేక దినం (TE)" value={form.specialDayTE ?? ''} onChange={set('specialDayTE')} />
+              <Field label="Special Day (TE)" value={form.specialDayTE ?? ''} onChange={set('specialDayTE')} />
             </Section>
           </div>
 
@@ -247,7 +337,7 @@ export default function AdminPanchangamEditor({ language }: Props) {
               className="flex items-center space-x-2 px-5 py-2.5 bg-[#7A1E1E] text-white rounded-xl text-xs font-bold hover:bg-[#5E1414] disabled:opacity-50 transition cursor-pointer disabled:cursor-not-allowed"
             >
               {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-              <span>{language === 'EN' ? 'Save as Manual Override' : 'మాన్యువల్‌గా సేవ్ చేయండి'}</span>
+              <span>{isTE ? 'Manual Override సేవ్ చేయండి' : 'Save as Manual Override'}</span>
             </button>
 
             {status === 'manual' && (
@@ -258,16 +348,24 @@ export default function AdminPanchangamEditor({ language }: Props) {
                 className="flex items-center space-x-2 px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 disabled:opacity-50 transition cursor-pointer disabled:cursor-not-allowed"
               >
                 <Trash2 size={13} />
-                <span>{language === 'EN' ? 'Clear Override (Use API)' : 'ఓవర్‌రైడ్ తొలగించు (API వాడు)'}</span>
+                <span>{isTE ? 'Override తొలగించు (API వాడు)' : 'Clear Override (Use API)'}</span>
               </button>
             )}
           </div>
 
           {status === 'manual' && (
             <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-              {language === 'EN'
-                ? 'This date uses manually entered data. Visitors see your values, not the API. Click "Clear Override" to restore live API data.'
-                : 'ఈ తేదీ మాన్యువల్ డేటా ఉపయోగిస్తోంది. "ఓవర్‌రైడ్ తొలగించు" నొక్కితే తిరిగి API డేటా వస్తుంది.'}
+              {isTE
+                ? 'ఈ తేదీ manual డేటా ఉపయోగిస్తోంది. "Override తొలగించు" నొక్కితే తిరిగి API డేటా వస్తుంది.'
+                : 'This date uses manually entered data. Visitors see your values, not the API. Click "Clear Override" to restore live API data.'}
+            </p>
+          )}
+
+          {status === 'self-calc' && (
+            <p className="text-[11px] text-purple-700 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
+              {isTE
+                ? 'Prokerala API అందుబాటులో లేనప్పుడు Meeus గణనలు వాడారు. దయచేసి ఈ విలువలు తనిఖీ చేసి "Save as Manual Override" నొక్కండి.'
+                : 'Prokerala API was unavailable so values were computed using Meeus astronomical formulas (~95% accurate). Please verify and click "Save as Manual Override" to confirm or correct them.'}
             </p>
           )}
         </>

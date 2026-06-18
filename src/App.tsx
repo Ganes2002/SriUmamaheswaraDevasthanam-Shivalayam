@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   getGlobalSettings,
   saveWhatsappLink,
+  saveTempleHours,
+  saveDefaultEventImage,
+  saveDefaultProfileIcons,
   getAnnouncement,
   saveAnnouncement,
   getCommittee,
@@ -66,6 +69,11 @@ export default function App() {
   const [templeEmblem, setTempleEmblem] = useState<string>('');
   const [templeEmblemLibrary, setTempleEmblemLibrary] = useState<TempleEmblemSlot[]>([]);
   const [whatsappLink, setWhatsappLink] = useState<string>('');
+  const [templeOpenTime, setTempleOpenTime] = useState<string>('6:00 AM');
+  const [templeCloseTime, setTempleCloseTime] = useState<string>('8:30 PM');
+  const [defaultEventImage, setDefaultEventImage] = useState<string>('https://images.unsplash.com/photo-1609137144814-7ebd5b40cfeb?auto=format&fit=crop&q=80&w=600');
+  const [defaultProfileMale, setDefaultProfileMale] = useState<string>('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200');
+  const [defaultProfileFemale, setDefaultProfileFemale] = useState<string>('https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200');
   const [announcement, setAnnouncement] = useState<Announcement>({
     id: '',
     textEN: '',
@@ -113,6 +121,11 @@ export default function App() {
       setTempleEmblem(globalSettings.templeEmblem);
       setLifetimeTotal(globalSettings.lifetimeCounter);
       setWhatsappLink(globalSettings.whatsappLink);
+      setTempleOpenTime(globalSettings.templeOpenTime);
+      setTempleCloseTime(globalSettings.templeCloseTime);
+      setDefaultEventImage(globalSettings.defaultEventImage);
+      setDefaultProfileMale(globalSettings.defaultProfileMale);
+      setDefaultProfileFemale(globalSettings.defaultProfileFemale);
       setTempleEmblemLibrary(emblemLib);
       setAnnouncement(ann);
       setEventsList(events);
@@ -200,6 +213,23 @@ export default function App() {
   const handleUpdateWhatsappLink = async (link: string) => {
     await saveWhatsappLink(link);
     setWhatsappLink(link);
+  };
+
+  const handleUpdateTempleHours = async (openTime: string, closeTime: string) => {
+    await saveTempleHours(openTime, closeTime);
+    setTempleOpenTime(openTime);
+    setTempleCloseTime(closeTime);
+  };
+
+  const handleUpdateDefaultEventImage = async (url: string) => {
+    await saveDefaultEventImage(url);
+    setDefaultEventImage(url);
+  };
+
+  const handleUpdateDefaultProfileIcons = async (maleUrl: string, femaleUrl: string) => {
+    await saveDefaultProfileIcons(maleUrl, femaleUrl);
+    setDefaultProfileMale(maleUrl);
+    setDefaultProfileFemale(femaleUrl);
   };
 
   const handleUpdateTempleEmblem = async (url: string) => {
@@ -321,10 +351,10 @@ export default function App() {
 
       {/* Main Content — overflow-x:clip avoids breaking position:fixed on iOS unlike overflow:hidden */}
       <main className="flex-1 overflow-x-clip">
-        <HeroSection language={language} templeEmblemLibrary={templeEmblemLibrary} whatsappLink={whatsappLink} />
+        <HeroSection language={language} templeEmblemLibrary={templeEmblemLibrary} whatsappLink={whatsappLink} templeOpenTime={templeOpenTime} templeCloseTime={templeCloseTime} />
         <AboutSection language={language} />
         <PanchangamSection language={language} />
-        <EventsSection language={language} eventsList={eventsList} />
+        <EventsSection language={language} eventsList={eventsList} defaultEventImage={defaultEventImage} />
         <GallerySection language={language} galleryList={galleryList} />
         <WelfareLedgerSection
           language={language}
@@ -336,7 +366,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <FooterContact language={language} committeeList={committeeList} />
+      <FooterContact language={language} committeeList={committeeList} defaultProfileMale={defaultProfileMale} defaultProfileFemale={defaultProfileFemale} />
 
       {/* Admin Panel */}
       {isAdminOpen && (
@@ -350,6 +380,14 @@ export default function App() {
           onUpdateTempleEmblemLibrary={handleUpdateTempleEmblemLibrary}
           whatsappLink={whatsappLink}
           onUpdateWhatsappLink={handleUpdateWhatsappLink}
+          templeOpenTime={templeOpenTime}
+          templeCloseTime={templeCloseTime}
+          onUpdateTempleHours={handleUpdateTempleHours}
+          defaultEventImage={defaultEventImage}
+          onUpdateDefaultEventImage={handleUpdateDefaultEventImage}
+          defaultProfileMale={defaultProfileMale}
+          defaultProfileFemale={defaultProfileFemale}
+          onUpdateDefaultProfileIcons={handleUpdateDefaultProfileIcons}
           announcement={announcement}
           onUpdateAnnouncement={handleUpdateAnnouncement}
           eventsList={eventsList}

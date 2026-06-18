@@ -11,15 +11,27 @@ interface AdminCommitteeManagerProps {
   onUpdateCommittee?: (list: CommitteeMember[]) => void;
   loggedInAdmin: CommitteeMember | null;
   setLoggedInAdmin: (val: CommitteeMember | null) => void;
+  defaultProfileMale?: string;
+  defaultProfileFemale?: string;
 }
+
+const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200';
+const DEFAULT_FEMALE = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
 
 export default function AdminCommitteeManager({
   language,
   committeeList,
   onUpdateCommittee,
   loggedInAdmin,
-  setLoggedInAdmin
+  setLoggedInAdmin,
+  defaultProfileMale = DEFAULT_MALE,
+  defaultProfileFemale = DEFAULT_FEMALE,
 }: AdminCommitteeManagerProps) {
+  const resolvePreviewSrc = (imageUrl: string) => {
+    if (imageUrl === '__MALE__') return defaultProfileMale;
+    if (imageUrl === '__FEMALE__') return defaultProfileFemale;
+    return imageUrl;
+  };
   // Form State: Committee Members customizer
   const [editCommitteeId, setEditCommitteeId] = useState<string | null>(null);
   const [commNameEN, setCommNameEN] = useState('');
@@ -396,44 +408,92 @@ export default function AdminCommitteeManager({
               />
             </div>
 
-            {/* Profile image upload */}
+            {/* Profile image — Upload OR choose default icon */}
             <div className="md:col-span-4 border-t border-dashed border-stone-200/60 pt-4 mt-2">
-              <label className="block text-xs text-stone-700 font-bold mb-1">
-                {language === 'EN' ? "Profile Photo (Optional — Max 2 MB)" : "ప్రొఫైల్ ఫోటో (ఐచ్ఛికం — గరిష్టం 2 MB)"}
+              <label className="block text-xs text-stone-700 font-bold mb-2">
+                {language === 'EN' ? "Profile Photo — Upload or choose a default icon" : "ప్రొఫైల్ ఫోటో — అప్‌లోడ్ చేయండి లేదా డిఫాల్ట్ చిహ్నం ఎంచుకోండి"}
               </label>
-              <div
-                onClick={() => !isUploadingImage && fileInputRef.current?.click()}
-                className={`border border-dashed rounded-xl p-3 text-center bg-white transition flex flex-col items-center justify-center space-y-1 h-20 select-none max-w-xs ${isUploadingImage ? 'cursor-not-allowed opacity-70 border-stone-200' : 'cursor-pointer hover:border-[#7A1E1E] hover:bg-stone-50 border-stone-300'}`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={isUploadingImage}
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      compressAndSetProfileImage(e.target.files[0]);
-                    }
-                  }}
-                />
-                {isUploadingImage ? (
-                  <>
-                    <Loader2 size={16} className="text-[#7A1E1E] animate-spin" />
-                    <p className="text-[10px] text-[#7A1E1E] font-bold">{language === 'EN' ? 'Uploading to CDN...' : 'అప్‌లోడ్ అవుతోంది...'}</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center space-x-1 font-serif text-xs font-bold text-[#7A1E1E]">
-                      <Camera size={14} />
-                      <span>{language === 'EN' ? "Click to select a photo" : "ఫోటో ఫైలును ఎంచుకోండి"}</span>
-                    </div>
-                    <p className="text-[10px] text-stone-400">
-                      {commImageUrl && commImageUrl.startsWith('https://')
-                        ? (language === 'EN' ? "✓ Photo ready — click to replace" : "✓ ఫోటో సిద్ధంగా ఉంది — మార్చాలంటే క్లిక్ చేయండి")
-                        : (language === 'EN' ? "Compressed & uploaded to CDN automatically" : "ఆటోమాటిగ్గా CDNకి అప్‌లోడ్ అవుతుంది")}
-                    </p>
-                  </>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Current preview */}
+                {commImageUrl && (
+                  <img
+                    src={resolvePreviewSrc(commImageUrl)}
+                    alt="Preview"
+                    className="h-12 w-12 rounded-full object-cover border-2 border-amber-300 shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+
+                {/* Upload button */}
+                <div
+                  onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                  className={`border border-dashed rounded-xl px-3 text-center bg-white transition flex flex-col items-center justify-center space-y-0.5 h-14 select-none min-w-[140px] ${isUploadingImage ? 'cursor-not-allowed opacity-70 border-stone-200' : 'cursor-pointer hover:border-[#7A1E1E] hover:bg-stone-50 border-stone-300'}`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={isUploadingImage}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        compressAndSetProfileImage(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  {isUploadingImage ? (
+                    <>
+                      <Loader2 size={14} className="text-[#7A1E1E] animate-spin" />
+                      <p className="text-[10px] text-[#7A1E1E] font-bold">{language === 'EN' ? 'Uploading...' : 'అప్‌లోడ్...'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center space-x-1 font-serif text-xs font-bold text-[#7A1E1E]">
+                        <Camera size={13} />
+                        <span>{language === 'EN' ? "Upload Photo" : "ఫోటో అప్‌లోడ్"}</span>
+                      </div>
+                      <p className="text-[9px] text-stone-400">
+                        {commImageUrl && commImageUrl.startsWith('https://')
+                          ? (language === 'EN' ? "✓ Click to replace" : "✓ మార్చాలంటే క్లిక్")
+                          : (language === 'EN' ? "Max 2 MB" : "గరిష్టం 2 MB")}
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Male default icon */}
+                <button
+                  type="button"
+                  onClick={() => setCommImageUrl('__MALE__')}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition cursor-pointer h-14 min-w-[80px] ${commImageUrl === '__MALE__' ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-400' : 'border-stone-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'}`}
+                >
+                  <img src={defaultProfileMale} alt="Male icon" className="h-7 w-7 rounded-full object-cover border border-blue-200" referrerPolicy="no-referrer" />
+                  <span className="text-[9px] font-bold text-blue-700 uppercase tracking-wide">
+                    {language === 'EN' ? 'Male' : 'పురుష'}
+                  </span>
+                </button>
+
+                {/* Female default icon */}
+                <button
+                  type="button"
+                  onClick={() => setCommImageUrl('__FEMALE__')}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition cursor-pointer h-14 min-w-[80px] ${commImageUrl === '__FEMALE__' ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-400' : 'border-stone-200 bg-white hover:border-pink-300 hover:bg-pink-50/50'}`}
+                >
+                  <img src={defaultProfileFemale} alt="Female icon" className="h-7 w-7 rounded-full object-cover border border-pink-200" referrerPolicy="no-referrer" />
+                  <span className="text-[9px] font-bold text-pink-700 uppercase tracking-wide">
+                    {language === 'EN' ? 'Female' : 'స్త్రీ'}
+                  </span>
+                </button>
+
+                {/* Clear selection */}
+                {commImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCommImageUrl('')}
+                    className="text-[10px] text-stone-500 hover:text-red-600 underline transition cursor-pointer self-center"
+                  >
+                    {language === 'EN' ? 'Clear' : 'తొలగించు'}
+                  </button>
                 )}
               </div>
             </div>
@@ -479,7 +539,7 @@ export default function AdminCommitteeManager({
                 <div className="flex items-start space-x-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-[#FAF6F0] border border-amber-200 flex items-center justify-center font-bold text-sm text-[#7A1E1E] shrink-0">
                     {m.imageUrl ? (
-                      <img src={m.imageUrl} alt={m.nameEN} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={resolvePreviewSrc(m.imageUrl)} alt={m.nameEN} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <span>{m.nameEN ? m.nameEN.charAt(0) : 'ॐ'}</span>
                     )}
