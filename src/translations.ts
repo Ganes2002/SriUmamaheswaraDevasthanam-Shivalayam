@@ -195,8 +195,8 @@ export const TRANSLATIONS: TranslationDictionary = {
   designationAdvisor: { EN: "Chief Spiritual Advisor", TE: "ప్రధాన అర్చకులు / సలహాదారు" },
   addressLabel: { EN: "Temple Address:", TE: "ఆలయ చిరునామా:" },
   addressText: {
-    EN: "Sri Umamaheswara Devasthanam (Shivalayam), Devotional Hill Complex, Sector 4, Hyderabad, Telangana - 500045, India",
-    TE: "శ్రీ ఉమామహేశ్వర దేవస్థానం (శివాలయం), భక్తి గిరి సముదాయం, సెక్టార్ 4, హైదరాబాద్, తెలంగాణా - 500045, భారతదేశం"
+    EN: "Sri Umamaheswara Devasthanam (Shivalayam), Shivalayam Street, Peddvaduguru, Andhra Pradesh - 515405",
+    TE: "శ్రీ ఉమామహేశ్వర దేవస్థానం (శివాలయం), శివాలయం వీధి, పెద్దవడుగూరు, ఆంధ్రప్రదేశ్ - 515405"
   },
   phoneLabel: { EN: "Helpline Number:", TE: "హెల్ప్‌లైన్ నెంబరు:" },
   phoneText: { EN: "1800-425-6677", TE: "1800-425-6677" },

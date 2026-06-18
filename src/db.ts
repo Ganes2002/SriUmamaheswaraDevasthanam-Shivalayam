@@ -783,21 +783,16 @@ export interface PanchangamCacheEntry {
 export async function getPanchangamCacheEntry(date: string): Promise<PanchangamCacheEntry | null> {
   const { data, error } = await supabase
     .from('panchangam_cache')
-    .select('date, data, is_manual_override, cached_at')
+    .select('date, data, is_manual_override, source, cached_at')
     .eq('date', date)
     .maybeSingle();
   if (error || !data) return null;
-  const raw = data.data as Record<string, unknown>;
-  const source: PanchangamCacheEntry['source'] =
-    data.is_manual_override ? 'manual'
-    : raw?._source === 'self-calc' ? 'self-calc'
-    : 'prokerala';
   return {
     date: data.date,
-    data: raw as unknown as PanchangamDetails,
+    data: data.data as unknown as PanchangamDetails,
     isManualOverride: data.is_manual_override,
     cachedAt: data.cached_at,
-    source,
+    source: (data.source ?? 'prokerala') as PanchangamCacheEntry['source'],
   };
 }
 
@@ -805,7 +800,7 @@ export async function savePanchangamOverride(date: string, panchangam: Panchanga
   await supabase
     .from('panchangam_cache')
     .upsert(
-      { date, data: panchangam, is_manual_override: true, cached_at: new Date().toISOString() },
+      { date, data: panchangam, is_manual_override: true, source: 'manual', cached_at: new Date().toISOString() },
       { onConflict: 'date' }
     );
   await addLog(`Panchangam manually overridden for ${date} by admin.`, 'edit');
@@ -826,6 +821,16 @@ export async function runMidnightJanitorSimulation(): Promise<{
 }> {
   const { error } = await supabase.rpc('execute_midnight_janitor_sweeps');
   if (error) throw error;
+
+  // Delete auto-cached panchangam rows older than 5 months (manual overrides are kept)
+  const fiveMonthsAgo = new Date();
+  fiveMonthsAgo.setMonth(fiveMonthsAgo.getMonth() - 5);
+  await supabase
+    .from('panchangam_cache')
+    .delete()
+    .eq('is_manual_override', false)
+    .lt('cached_at', fiveMonthsAgo.toISOString());
+
   // Janitor modifies events, donors, lifetime counter — bust all affected caches
   cacheBust('events');
   cacheBust('donors');
