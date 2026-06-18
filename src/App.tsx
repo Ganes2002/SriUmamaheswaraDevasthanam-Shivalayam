@@ -3,6 +3,7 @@ import {
   getGlobalSettings,
   saveWhatsappLink,
   saveTempleHours,
+  saveTempleHours2,
   saveDefaultEventImage,
   saveDefaultProfileIcons,
   getAnnouncement,
@@ -71,6 +72,8 @@ export default function App() {
   const [whatsappLink, setWhatsappLink] = useState<string>('');
   const [templeOpenTime, setTempleOpenTime] = useState<string>('6:00 AM');
   const [templeCloseTime, setTempleCloseTime] = useState<string>('8:30 PM');
+  const [templeOpenTime2, setTempleOpenTime2] = useState<string>('');
+  const [templeCloseTime2, setTempleCloseTime2] = useState<string>('');
   const [defaultEventImage, setDefaultEventImage] = useState<string>('https://images.unsplash.com/photo-1609137144814-7ebd5b40cfeb?auto=format&fit=crop&q=80&w=600');
   const [defaultProfileMale, setDefaultProfileMale] = useState<string>('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200');
   const [defaultProfileFemale, setDefaultProfileFemale] = useState<string>('https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200');
@@ -94,10 +97,6 @@ export default function App() {
   // Extracted as useCallback so refreshAllData can call it without re-mounting.
   const loadAllData = useCallback(async () => {
     try {
-      // Always bust the cache before the initial load so stale empty data
-      // (cached before Supabase was fully set up) never blocks a fresh fetch.
-      bustAllCache();
-
       const [
         globalSettings,
         emblemLib,
@@ -123,6 +122,8 @@ export default function App() {
       setWhatsappLink(globalSettings.whatsappLink);
       setTempleOpenTime(globalSettings.templeOpenTime);
       setTempleCloseTime(globalSettings.templeCloseTime);
+      setTempleOpenTime2(globalSettings.templeOpenTime2);
+      setTempleCloseTime2(globalSettings.templeCloseTime2);
       setDefaultEventImage(globalSettings.defaultEventImage);
       setDefaultProfileMale(globalSettings.defaultProfileMale);
       setDefaultProfileFemale(globalSettings.defaultProfileFemale);
@@ -219,6 +220,12 @@ export default function App() {
     await saveTempleHours(openTime, closeTime);
     setTempleOpenTime(openTime);
     setTempleCloseTime(closeTime);
+  };
+
+  const handleUpdateTempleHours2 = async (openTime2: string, closeTime2: string) => {
+    await saveTempleHours2(openTime2, closeTime2);
+    setTempleOpenTime2(openTime2);
+    setTempleCloseTime2(closeTime2);
   };
 
   const handleUpdateDefaultEventImage = async (url: string) => {
@@ -351,9 +358,9 @@ export default function App() {
 
       {/* Main Content — overflow-x:clip avoids breaking position:fixed on iOS unlike overflow:hidden */}
       <main className="flex-1 overflow-x-clip">
-        <HeroSection language={language} templeEmblemLibrary={templeEmblemLibrary} whatsappLink={whatsappLink} templeOpenTime={templeOpenTime} templeCloseTime={templeCloseTime} />
+        <HeroSection language={language} templeEmblemLibrary={templeEmblemLibrary} whatsappLink={whatsappLink} templeOpenTime={templeOpenTime} templeCloseTime={templeCloseTime} templeOpenTime2={templeOpenTime2} templeCloseTime2={templeCloseTime2} />
         <AboutSection language={language} />
-        <PanchangamSection language={language} />
+        <PanchangamSection language={language} isAdminLoggedIn={isAdminLoggedIn} />
         <EventsSection language={language} eventsList={eventsList} defaultEventImage={defaultEventImage} />
         <GallerySection language={language} galleryList={galleryList} />
         <WelfareLedgerSection
@@ -383,6 +390,9 @@ export default function App() {
           templeOpenTime={templeOpenTime}
           templeCloseTime={templeCloseTime}
           onUpdateTempleHours={handleUpdateTempleHours}
+          templeOpenTime2={templeOpenTime2}
+          templeCloseTime2={templeCloseTime2}
+          onUpdateTempleHours2={handleUpdateTempleHours2}
           defaultEventImage={defaultEventImage}
           onUpdateDefaultEventImage={handleUpdateDefaultEventImage}
           defaultProfileMale={defaultProfileMale}

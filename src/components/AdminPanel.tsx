@@ -43,6 +43,9 @@ interface AdminPanelProps {
   templeOpenTime: string;
   templeCloseTime: string;
   onUpdateTempleHours: (open: string, close: string) => void;
+  templeOpenTime2: string;
+  templeCloseTime2: string;
+  onUpdateTempleHours2: (open2: string, close2: string) => void;
   defaultEventImage: string;
   onUpdateDefaultEventImage: (url: string) => void;
   defaultProfileMale: string;
@@ -83,6 +86,9 @@ export default function AdminPanel({
   templeOpenTime,
   templeCloseTime,
   onUpdateTempleHours,
+  templeOpenTime2,
+  templeCloseTime2,
+  onUpdateTempleHours2,
   defaultEventImage,
   onUpdateDefaultEventImage,
   defaultProfileMale,
@@ -460,6 +466,9 @@ export default function AdminPanel({
               templeOpenTime={templeOpenTime}
               templeCloseTime={templeCloseTime}
               onUpdateTempleHours={onUpdateTempleHours}
+              templeOpenTime2={templeOpenTime2}
+              templeCloseTime2={templeCloseTime2}
+              onUpdateTempleHours2={onUpdateTempleHours2}
               t={t}
             />
 

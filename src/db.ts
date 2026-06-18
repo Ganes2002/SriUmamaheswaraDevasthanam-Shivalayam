@@ -135,6 +135,8 @@ export async function getGlobalSettings(): Promise<{
   whatsappLink: string;
   templeOpenTime: string;
   templeCloseTime: string;
+  templeOpenTime2: string;
+  templeCloseTime2: string;
   defaultEventImage: string;
   defaultProfileMale: string;
   defaultProfileFemale: string;
@@ -144,14 +146,17 @@ export async function getGlobalSettings(): Promise<{
   const cachedWa = cacheGet<string>('walink');
   const cachedOpenTime = cacheGet<string>('opentime');
   const cachedCloseTime = cacheGet<string>('closetime');
+  const cachedOpenTime2 = cacheGet<string>('opentime2');
+  const cachedCloseTime2 = cacheGet<string>('closetime2');
   const cachedDefEventImg = cacheGet<string>('defeventimg');
   const cachedDefMale = cacheGet<string>('defmale');
   const cachedDefFemale = cacheGet<string>('deffemale');
 
   if (
     cachedEmblem !== null && cachedLifetime !== null && cachedWa !== null &&
-    cachedOpenTime !== null && cachedCloseTime !== null && cachedDefEventImg !== null &&
-    cachedDefMale !== null && cachedDefFemale !== null
+    cachedOpenTime !== null && cachedCloseTime !== null &&
+    cachedOpenTime2 !== null && cachedCloseTime2 !== null &&
+    cachedDefEventImg !== null && cachedDefMale !== null && cachedDefFemale !== null
   ) {
     return {
       templeEmblem: cachedEmblem,
@@ -159,6 +164,8 @@ export async function getGlobalSettings(): Promise<{
       whatsappLink: cachedWa,
       templeOpenTime: cachedOpenTime,
       templeCloseTime: cachedCloseTime,
+      templeOpenTime2: cachedOpenTime2,
+      templeCloseTime2: cachedCloseTime2,
       defaultEventImage: cachedDefEventImg,
       defaultProfileMale: cachedDefMale,
       defaultProfileFemale: cachedDefFemale,
@@ -177,6 +184,8 @@ export async function getGlobalSettings(): Promise<{
   const whatsappLink = map['whatsapp_link'] || '';
   const templeOpenTime = map['temple_open_time'] || DEFAULT_OPEN_TIME;
   const templeCloseTime = map['temple_close_time'] || DEFAULT_CLOSE_TIME;
+  const templeOpenTime2 = map['temple_open_time_2'] || '';
+  const templeCloseTime2 = map['temple_close_time_2'] || '';
   const defaultEventImage = map['default_event_image'] || DEFAULT_EVENT_IMAGE;
   const defaultProfileMale = map['default_profile_male'] || DEFAULT_PROFILE_MALE;
   const defaultProfileFemale = map['default_profile_female'] || DEFAULT_PROFILE_FEMALE;
@@ -186,11 +195,13 @@ export async function getGlobalSettings(): Promise<{
   cacheSet('walink', whatsappLink, TTL.long);
   cacheSet('opentime', templeOpenTime, TTL.long);
   cacheSet('closetime', templeCloseTime, TTL.long);
+  cacheSet('opentime2', templeOpenTime2, TTL.long);
+  cacheSet('closetime2', templeCloseTime2, TTL.long);
   cacheSet('defeventimg', defaultEventImage, TTL.long);
   cacheSet('defmale', defaultProfileMale, TTL.long);
   cacheSet('deffemale', defaultProfileFemale, TTL.long);
 
-  return { templeEmblem, lifetimeCounter, whatsappLink, templeOpenTime, templeCloseTime, defaultEventImage, defaultProfileMale, defaultProfileFemale };
+  return { templeEmblem, lifetimeCounter, whatsappLink, templeOpenTime, templeCloseTime, templeOpenTime2, templeCloseTime2, defaultEventImage, defaultProfileMale, defaultProfileFemale };
 }
 
 export async function saveTempleHours(openTime: string, closeTime: string): Promise<void> {
@@ -203,7 +214,29 @@ export async function saveTempleHours(openTime: string, closeTime: string): Prom
   addLog(`Temple daily darshan timings updated: Open ${openTime} — Close ${closeTime}`, 'edit');
 }
 
+export async function saveTempleHours2(openTime2: string, closeTime2: string): Promise<void> {
+  await supabase.from('global_settings').upsert([
+    { key: 'temple_open_time_2', value: openTime2, updated_at: new Date().toISOString() },
+    { key: 'temple_close_time_2', value: closeTime2, updated_at: new Date().toISOString() },
+  ], { onConflict: 'key' });
+  cacheBust('opentime2');
+  cacheBust('closetime2');
+  if (openTime2 && closeTime2) {
+    addLog(`Afternoon session added: ${openTime2} — ${closeTime2}`, 'edit');
+  } else {
+    addLog('Afternoon session removed — single-slot darshan timings restored.', 'edit');
+  }
+}
+
 export async function saveDefaultEventImage(url: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('global_settings')
+    .select('value')
+    .eq('key', 'default_event_image')
+    .single();
+  if (existing?.value && isStorageUrl(existing.value) && existing.value !== url) {
+    await deleteFromStorage(existing.value);
+  }
   await supabase.from('global_settings').upsert(
     { key: 'default_event_image', value: url, updated_at: new Date().toISOString() },
     { onConflict: 'key' }

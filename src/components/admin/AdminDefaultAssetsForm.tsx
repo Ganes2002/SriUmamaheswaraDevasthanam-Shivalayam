@@ -53,26 +53,31 @@ export default function AdminDefaultAssetsForm({
       const img = new window.Image();
       img.src = src;
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-          else { w = Math.round(w * maxDim / h); h = maxDim; }
-        }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(async (blob) => {
-          if (!blob) { setUploading(false); return; }
-          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const url = await uploadImageToStorage(blob, folder, `${Date.now()}-${safeName}`);
-          setUploading(false);
-          if (url) {
-            onDone(url);
-            showToast(language === 'EN' ? 'Image uploaded!' : 'చిత్రం అప్‌లోడ్ అయింది!', 'success');
-          } else {
-            showToast(language === 'EN' ? 'Upload failed — check F12 console.' : 'అప్‌లోడ్ విఫలమైంది.', 'error');
-          }
-        }, 'image/jpeg', quality);
+        // Defer heavy canvas work to avoid blocking the main thread (INP)
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const canvas = document.createElement('canvas');
+            let w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+              else { w = Math.round(w * maxDim / h); h = maxDim; }
+            }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+            canvas.toBlob(async (blob) => {
+              if (!blob) { setUploading(false); return; }
+              const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+              const url = await uploadImageToStorage(blob, folder, `${Date.now()}-${safeName}`);
+              setUploading(false);
+              if (url) {
+                onDone(url);
+                showToast(language === 'EN' ? 'Image uploaded!' : 'చిత్రం అప్‌లోడ్ అయింది!', 'success');
+              } else {
+                showToast(language === 'EN' ? 'Upload failed — check F12 console.' : 'అప్‌లోడ్ విఫలమైంది.', 'error');
+              }
+            }, 'image/jpeg', quality);
+          }, 0);
+        });
       };
     };
     reader.readAsDataURL(file);

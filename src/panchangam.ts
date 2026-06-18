@@ -480,13 +480,20 @@ export function estimatePanchangam(dateStr: string): PanchangamDetails {
   };
 }
 
+// ── Session-level in-memory cache to prevent redundant fetches ───────────────
+// Cleared automatically when the page is closed/refreshed.
+const _sessionCache = new Map<string, PanchangamDetails>();
+
 // ── Public: async entry point ─────────────────────────────────────────────────
 // Priority order:
-//   1. DB-cached Prokerala data     (served by Edge Function, X-Cache: HIT)
-//   2. Live Prokerala API           (Edge Function calls Prokerala, X-Cache: MISS)
-//   3. Edge Function Meeus fallback (when Prokerala credits exhausted, X-Cache: SELF-CALC)
-//   4. Client-side Meeus estimate   (when Edge Function itself is unreachable)
+//   1. In-memory session cache      (same date already fetched this session)
+//   2. DB-cached Prokerala data     (served by Edge Function, X-Cache: HIT)
+//   3. Live Prokerala API           (Edge Function calls Prokerala, X-Cache: MISS)
+//   4. Edge Function Meeus fallback (when Prokerala credits exhausted, X-Cache: SELF-CALC)
+//   5. Client-side Meeus estimate   (when Edge Function itself is unreachable)
 export async function calculatePanchangam(dateStr: string): Promise<PanchangamDetails> {
+  if (_sessionCache.has(dateStr)) return _sessionCache.get(dateStr)!;
+
   const estimated = estimatePanchangam(dateStr);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -494,11 +501,15 @@ export async function calculatePanchangam(dateStr: string): Promise<PanchangamDe
     try {
       const { fetchFromProkerala } = await import('./lib/panchangamApi');
       const live = await fetchFromProkerala(dateStr, estimated);
-      if (live) return live;
+      if (live) {
+        _sessionCache.set(dateStr, live);
+        return live;
+      }
     } catch (err) {
       console.warn('[Panchangam] Edge Function unreachable, using Meeus client estimate:', err);
     }
   }
 
+  _sessionCache.set(dateStr, estimated);
   return estimated;
 }

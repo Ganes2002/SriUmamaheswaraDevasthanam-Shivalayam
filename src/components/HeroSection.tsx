@@ -9,6 +9,8 @@ interface HeroSectionProps {
   whatsappLink?: string;
   templeOpenTime?: string;
   templeCloseTime?: string;
+  templeOpenTime2?: string;
+  templeCloseTime2?: string;
 }
 
 const DEFAULT_PRESETS = [
@@ -44,7 +46,8 @@ const DEFAULT_PRESETS = [
   }
 ];
 
-export default function HeroSection({ language, templeEmblemLibrary, whatsappLink, templeOpenTime = '6:00 AM', templeCloseTime = '8:30 PM' }: HeroSectionProps) {
+export default function HeroSection({ language, templeEmblemLibrary, whatsappLink, templeOpenTime = '6:00 AM', templeCloseTime = '8:30 PM', templeOpenTime2 = '', templeCloseTime2 = '' }: HeroSectionProps) {
+  const hasAfternoonBreak = !!(templeOpenTime2 && templeCloseTime2);
   // Use state library, or fall back to high-quality default presets if the library database loading is not ready
   const slides = templeEmblemLibrary && templeEmblemLibrary.length > 0 ? templeEmblemLibrary : DEFAULT_PRESETS;
   
@@ -224,9 +227,23 @@ export default function HeroSection({ language, templeEmblemLibrary, whatsappLin
                 <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest font-sans">
                   {language === 'EN' ? 'Daily Darshan Timings' : 'నిత్య దర్శన వేళలు'}
                 </p>
-                <p className="text-sm font-serif font-black text-white mt-0.5">
-                  {templeOpenTime} &nbsp;—&nbsp; {templeCloseTime}
-                </p>
+                {hasAfternoonBreak ? (
+                  <div className="mt-0.5 space-y-0.5">
+                    <p className="text-sm font-serif font-black text-white">
+                      {templeOpenTime} &nbsp;—&nbsp; {templeCloseTime}
+                    </p>
+                    <p className="text-[10px] text-amber-400/80 font-sans font-semibold uppercase tracking-wider">
+                      {language === 'EN' ? 'Afternoon Break' : 'మధ్యాహ్న విరామం'}
+                    </p>
+                    <p className="text-sm font-serif font-black text-white">
+                      {templeOpenTime2} &nbsp;—&nbsp; {templeCloseTime2}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-serif font-black text-white mt-0.5">
+                    {templeOpenTime} &nbsp;—&nbsp; {templeCloseTime}
+                  </p>
+                )}
               </div>
             </div>
           </div>
