@@ -409,7 +409,7 @@ serve(async (req) => {
 
       // Upsert so a prior self-calc entry gets replaced with accurate Prokerala data
       const cacheRes = await db.from('panchangam_cache').upsert(
-        { date, data: result, is_manual_override: false, cached_at: new Date().toISOString() },
+        { date, data: result, is_manual_override: false, source: 'prokerala', cached_at: new Date().toISOString() },
         { onConflict: 'date' }
       )
       if (cacheRes.error) console.warn('[panchangam-fn] Cache write error:', cacheRes.error.message)
@@ -427,7 +427,7 @@ serve(async (req) => {
       // On future requests the cache check above will attempt a Prokerala upgrade,
       // so once credits reset the entry is automatically replaced with accurate data.
       const selfRes = await db.from('panchangam_cache').upsert(
-        { date, data: result, is_manual_override: false, cached_at: new Date().toISOString() },
+        { date, data: result, is_manual_override: false, source: 'self-calc', cached_at: new Date().toISOString() },
         { onConflict: 'date' }
       )
       if (selfRes.error) console.warn('[panchangam-fn] Self-calc cache write error:', selfRes.error.message)

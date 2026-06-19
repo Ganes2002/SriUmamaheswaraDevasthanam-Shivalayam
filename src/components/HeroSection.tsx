@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { TRANSLATIONS, Language } from '../translations';
-import { CalendarRange, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, Eye, Clock } from 'lucide-react';
 import { TempleEmblemSlot } from '../types';
 
 interface HeroSectionProps {
   language: Language;
   templeEmblemLibrary: TempleEmblemSlot[];
   whatsappLink?: string;
+  templeOpenTime?: string;
+  templeCloseTime?: string;
+  templeOpenTime2?: string;
+  templeCloseTime2?: string;
 }
 
 const DEFAULT_PRESETS = [
@@ -42,7 +46,8 @@ const DEFAULT_PRESETS = [
   }
 ];
 
-export default function HeroSection({ language, templeEmblemLibrary, whatsappLink }: HeroSectionProps) {
+export default function HeroSection({ language, templeEmblemLibrary, whatsappLink, templeOpenTime = '6:00 AM', templeCloseTime = '8:30 PM', templeOpenTime2 = '', templeCloseTime2 = '' }: HeroSectionProps) {
+  const hasAfternoonBreak = !!(templeOpenTime2 && templeCloseTime2);
   // Use state library, or fall back to high-quality default presets if the library database loading is not ready
   const slides = templeEmblemLibrary && templeEmblemLibrary.length > 0 ? templeEmblemLibrary : DEFAULT_PRESETS;
   
@@ -214,8 +219,37 @@ export default function HeroSection({ language, templeEmblemLibrary, whatsappLin
             </a>
           )}
 
+          {/* Temple Daily Darshan Timings Banner */}
+          <div className="w-full max-w-md mx-auto">
+            <div className="flex items-center justify-center gap-3 bg-stone-900/70 border border-amber-400/30 rounded-2xl px-5 py-3 backdrop-blur-sm">
+              <Clock size={14} className="text-amber-400 shrink-0" />
+              <div className="text-center">
+                <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest font-sans">
+                  {language === 'EN' ? 'Daily Darshan Timings' : 'నిత్య దర్శన వేళలు'}
+                </p>
+                {hasAfternoonBreak ? (
+                  <div className="mt-0.5 space-y-0.5">
+                    <p className="text-sm font-serif font-black text-white">
+                      {templeOpenTime} &nbsp;—&nbsp; {templeCloseTime}
+                    </p>
+                    <p className="text-[10px] text-amber-400/80 font-sans font-semibold uppercase tracking-wider">
+                      {language === 'EN' ? 'Afternoon Break' : 'మధ్యాహ్న విరామం'}
+                    </p>
+                    <p className="text-sm font-serif font-black text-white">
+                      {templeOpenTime2} &nbsp;—&nbsp; {templeCloseTime2}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-serif font-black text-white mt-0.5">
+                    {templeOpenTime} &nbsp;—&nbsp; {templeCloseTime}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Simple Bottom Ribbon Line */}
-          <div className="w-full max-w-md mx-auto border-t border-amber-400/20 pt-4 mt-6">
+          <div className="w-full max-w-md mx-auto border-t border-amber-400/20 pt-4 mt-2">
             <p className="font-serif text-amber-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest leading-relaxed">
               {t('tagline')}
             </p>

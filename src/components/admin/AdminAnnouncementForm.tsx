@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, MessageCircle } from 'lucide-react';
+import { Bell, MessageCircle, Clock } from 'lucide-react';
 import { Language } from '../../translations';
 import { Announcement } from '../../types';
 import { showToast } from '../Toast';
@@ -10,6 +10,12 @@ interface AdminAnnouncementFormProps {
   onUpdateAnnouncement: (ann: Announcement) => void;
   whatsappLink: string;
   onUpdateWhatsappLink: (link: string) => void;
+  templeOpenTime: string;
+  templeCloseTime: string;
+  onUpdateTempleHours: (open: string, close: string) => void;
+  templeOpenTime2: string;
+  templeCloseTime2: string;
+  onUpdateTempleHours2: (open2: string, close2: string) => void;
   t: (key: string) => string;
 }
 
@@ -19,11 +25,22 @@ export default function AdminAnnouncementForm({
   onUpdateAnnouncement,
   whatsappLink,
   onUpdateWhatsappLink,
+  templeOpenTime,
+  templeCloseTime,
+  onUpdateTempleHours,
+  templeOpenTime2,
+  templeCloseTime2,
+  onUpdateTempleHours2,
   t
 }: AdminAnnouncementFormProps) {
   const [annTextEN, setAnnTextEN] = useState(announcement.textEN);
   const [annTextTE, setAnnTextTE] = useState(announcement.textTE);
   const [waLink, setWaLink] = useState(whatsappLink);
+  const [openTime, setOpenTime] = useState(templeOpenTime);
+  const [closeTime, setCloseTime] = useState(templeCloseTime);
+  const [hasBreak, setHasBreak] = useState(!!(templeOpenTime2 && templeCloseTime2));
+  const [openTime2, setOpenTime2] = useState(templeOpenTime2 || '');
+  const [closeTime2, setCloseTime2] = useState(templeCloseTime2 || '');
 
   const handleAnnUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +55,42 @@ export default function AdminAnnouncementForm({
       language === 'EN'
         ? 'Scrolling announcement updated — visitors will see the new text immediately!'
         : 'స్క్రోలింగ్ ప్రకటన నవీకరించబడింది — సందర్శకులకు వెంటనే కనిపిస్తుంది!',
+      'success'
+    );
+  };
+
+  const handleTempleHoursSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedOpen = openTime.trim();
+    const trimmedClose = closeTime.trim();
+    if (!trimmedOpen || !trimmedClose) {
+      showToast(
+        language === 'EN' ? 'Please enter both opening and closing times.' : 'దయచేసి తెరవడం మరియు మూయడం రెండు సమయాలు నమోదు చేయండి.',
+        'warning'
+      );
+      return;
+    }
+    onUpdateTempleHours(trimmedOpen, trimmedClose);
+
+    const t2Open = hasBreak ? openTime2.trim() : '';
+    const t2Close = hasBreak ? closeTime2.trim() : '';
+    if (hasBreak && (!t2Open || !t2Close)) {
+      showToast(
+        language === 'EN' ? 'Please enter both afternoon session times, or disable the break.' : 'దయచేసి మధ్యాహ్న సమయాలు రెండూ నమోదు చేయండి.',
+        'warning'
+      );
+      return;
+    }
+    onUpdateTempleHours2(t2Open, t2Close);
+
+    showToast(
+      language === 'EN'
+        ? hasBreak
+          ? `Temple timings updated: ${trimmedOpen}—${trimmedClose} & ${t2Open}—${t2Close}`
+          : `Temple timings updated: ${trimmedOpen} — ${trimmedClose}`
+        : hasBreak
+          ? `ఆలయ వేళలు నవీకరించబడ్డాయి: ${trimmedOpen}–${trimmedClose} & ${t2Open}–${t2Close}`
+          : `ఆలయ వేళలు నవీకరించబడ్డాయి: ${trimmedOpen} — ${trimmedClose}`,
       'success'
     );
   };
@@ -160,6 +213,132 @@ export default function AdminAnnouncementForm({
               style={{ background: '#128C7E' }}
             >
               {language === 'EN' ? '💬 Save WhatsApp Link' : '💬 WhatsApp లింక్ సేవ్ చేయి'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Temple Darshan Hours Manager */}
+      <div className="bg-white p-6 rounded-3xl border border-stone-200">
+        <h4 className="font-serif text-base font-extrabold text-[#7A1E1E] mb-1 flex items-center space-x-2 border-b border-stone-100 pb-3">
+          <Clock size={18} />
+          <span>{language === 'EN' ? 'Daily Darshan Timings' : 'నిత్య దర్శన వేళలు'}</span>
+        </h4>
+        <p className="text-[11px] text-stone-500 mt-3 mb-4 leading-relaxed">
+          {language === 'EN'
+            ? 'Set the daily opening and closing times shown on the welcome banner. Displayed as "Open Time — Close Time" to all visitors.'
+            : 'హోమ్ పేజీ బ్యానర్‌లో చూపే ఆలయ రోజువారీ తెరవడం మరియు మూయడం సమయాలు సెట్ చేయండి.'}
+        </p>
+        <form onSubmit={handleTempleHoursSubmit} className="space-y-4">
+          {/* Morning / single session */}
+          <div>
+            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-2">
+              {language === 'EN' ? 'Morning / Main Session' : 'ఉదయం / ప్రధాన సమయం'}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="templeOpenTime" className="block text-xs text-stone-600 font-bold mb-1">
+                  {language === 'EN' ? 'Opening Time' : 'తెరవడం సమయం'}
+                </label>
+                <input
+                  id="templeOpenTime"
+                  type="text"
+                  value={openTime}
+                  onChange={(e) => setOpenTime(e.target.value)}
+                  placeholder="e.g. 6:00 AM"
+                  className="w-full text-xs font-sans rounded-lg border border-stone-300 px-3 py-2.5 text-stone-800 bg-[#FCFBF7]"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="templeCloseTime" className="block text-xs text-stone-600 font-bold mb-1">
+                  {language === 'EN' ? 'Closing Time' : 'మూయడం సమయం'}
+                </label>
+                <input
+                  id="templeCloseTime"
+                  type="text"
+                  value={closeTime}
+                  onChange={(e) => setCloseTime(e.target.value)}
+                  placeholder="e.g. 11:00 AM"
+                  className="w-full text-xs font-sans rounded-lg border border-stone-300 px-3 py-2.5 text-stone-800 bg-[#FCFBF7]"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Afternoon break toggle */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setHasBreak(!hasBreak);
+                if (hasBreak) { setOpenTime2(''); setCloseTime2(''); }
+              }}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${hasBreak ? 'bg-[#7A1E1E]' : 'bg-stone-300'}`}
+              role="switch"
+              aria-checked={hasBreak}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${hasBreak ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+            <span className="text-xs text-stone-700 font-semibold select-none">
+              {language === 'EN' ? 'Add afternoon / evening session (priest lunch break)' : 'మధ్యాహ్న / సాయంత్రం సమయం చేర్చు (భోజన విరామం)'}
+            </span>
+          </div>
+
+          {/* Afternoon session */}
+          {hasBreak && (
+            <div>
+              <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-2">
+                {language === 'EN' ? 'Afternoon / Evening Session' : 'మధ్యాహ్న / సాయంత్రం సమయం'}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="templeOpenTime2" className="block text-xs text-stone-600 font-bold mb-1">
+                    {language === 'EN' ? 'Re-opens At' : 'తిరిగి తెరవడం'}
+                  </label>
+                  <input
+                    id="templeOpenTime2"
+                    type="text"
+                    value={openTime2}
+                    onChange={(e) => setOpenTime2(e.target.value)}
+                    placeholder="e.g. 4:00 PM"
+                    className="w-full text-xs font-sans rounded-lg border border-stone-300 px-3 py-2.5 text-stone-800 bg-[#FCFBF7]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="templeCloseTime2" className="block text-xs text-stone-600 font-bold mb-1">
+                    {language === 'EN' ? 'Evening Close' : 'సాయంత్రం మూయడం'}
+                  </label>
+                  <input
+                    id="templeCloseTime2"
+                    type="text"
+                    value={closeTime2}
+                    onChange={(e) => setCloseTime2(e.target.value)}
+                    placeholder="e.g. 9:00 PM"
+                    className="w-full text-xs font-sans rounded-lg border border-stone-300 px-3 py-2.5 text-stone-800 bg-[#FCFBF7]"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center pt-1">
+            <p className="text-[11px] text-stone-400 font-sans">
+              {language === 'EN' ? 'Preview:' : 'ప్రివ్యూ:'}{' '}
+              <span className="font-bold text-stone-700">
+                {openTime} — {closeTime}
+                {hasBreak && openTime2 && closeTime2 && (
+                  <> &nbsp;|&nbsp; {openTime2} — {closeTime2}</>
+                )}
+              </span>
+            </p>
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-[#7A1E1E] hover:bg-[#5E1414] text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Clock size={12} />
+              <span>{language === 'EN' ? 'Save Timings' : 'వేళలు సేవ్ చేయి'}</span>
             </button>
           </div>
         </form>

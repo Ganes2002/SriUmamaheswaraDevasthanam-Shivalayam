@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { TRANSLATIONS, Language } from '../translations';
 import { CommitteeMember } from '../types';
-import { Phone, Mail, MapPin, Shield } from 'lucide-react';
+import { Phone, Mail, MapPin, Shield, Navigation } from 'lucide-react';
+
+const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200';
+const DEFAULT_FEMALE = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
 
 interface FooterContactProps {
   language: Language;
   committeeList: CommitteeMember[];
+  defaultProfileMale?: string;
+  defaultProfileFemale?: string;
 }
 
-export default function FooterContact({ language, committeeList }: FooterContactProps) {
+export default function FooterContact({ language, committeeList, defaultProfileMale = DEFAULT_MALE, defaultProfileFemale = DEFAULT_FEMALE }: FooterContactProps) {
+  const resolveAvatar = (imageUrl?: string) => {
+    if (!imageUrl) return defaultProfileMale;
+    if (imageUrl === '__MALE__') return defaultProfileMale;
+    if (imageUrl === '__FEMALE__') return defaultProfileFemale;
+    return imageUrl;
+  };
   const t = (key: string) => {
     return TRANSLATIONS[key]?.[language] || key;
   };
@@ -45,7 +56,7 @@ export default function FooterContact({ language, committeeList }: FooterContact
                 {/* Member Avatar */}
                 <div className="relative shrink-0">
                   <img
-                    src={mem.imageUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200"}
+                    src={resolveAvatar(mem.imageUrl)}
                     alt={mem.nameEN}
                     className="h-11 w-11 rounded-full object-cover border border-amber-300/35"
                     referrerPolicy="no-referrer"
@@ -103,9 +114,21 @@ export default function FooterContact({ language, committeeList }: FooterContact
               <MapPin size={14} />
               <span>{t('navAbout')}</span>
             </h4>
-            <p className="font-sans text-xs sm:text-sm text-stone-450 leading-relaxed font-light">
-              {t('addressText')}
-            </p>
+            <a
+              href="https://www.google.com/maps/dir/?api=1&destination=15.019487,77.672687"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block"
+              title={language === 'EN' ? 'Open in Google Maps' : 'Google Maps లో తెరవండి'}
+            >
+              <p className="font-sans text-xs sm:text-sm text-stone-400 leading-relaxed font-light group-hover:text-amber-300 transition-colors duration-200">
+                {t('addressText')}
+              </p>
+              <span className="inline-flex items-center space-x-1 mt-1.5 text-[10px] font-bold text-amber-500 group-hover:text-amber-300 transition-colors duration-200 uppercase tracking-wider">
+                <Navigation size={10} />
+                <span>{language === 'EN' ? 'Get Directions' : 'దారి చూపించు'}</span>
+              </span>
+            </a>
           </div>
 
           {/* Quick contact list */}

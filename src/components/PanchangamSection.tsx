@@ -7,6 +7,7 @@ import { showToast } from './Toast';
 
 interface PanchangamSectionProps {
   language: Language;
+  isAdminLoggedIn?: boolean;
 }
 
 // Show tithi / nakshatram / yogam / karanam with optional transition time
@@ -28,7 +29,7 @@ function TransitionBadge({ endTime, nextEN, nextTE, lang }: { endTime?: string; 
   );
 }
 
-export default function PanchangamSection({ language }: PanchangamSectionProps) {
+export default function PanchangamSection({ language, isAdminLoggedIn = false }: PanchangamSectionProps) {
   // Default to today's date
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const now = new Date();
@@ -75,19 +76,21 @@ export default function PanchangamSection({ language }: PanchangamSectionProps) 
           <div className="mx-auto mt-3 h-0.5 w-24 bg-amber-400" />
         </div>
 
-        {/* Developer simulation toggle */}
-        <div className="flex justify-end mb-6 text-xs text-stone-500 font-medium space-x-2">
-          <span>{language === 'EN' ? "Simulation Options (Admin Audits):" : "సిమ్యులేషన్ ఆప్షన్స్:"}</span>
-          <button
-            type="button"
-            onClick={() => setSimulationError(!simulationError)}
-            className={`px-2 py-0.5 rounded transition ${simulationError ? 'bg-red-200 text-red-800 font-bold' : 'bg-stone-200 hover:bg-stone-300'}`}
-          >
-            {simulationError
-              ? (language === 'EN' ? "[ON] Force Calc Error" : "[ON] బలవంతపు లోపం")
-              : (language === 'EN' ? "[OFF] Force Calc Error" : "[OFF] బలవంతపు లోపం")}
-          </button>
-        </div>
+        {/* Developer simulation toggle — admin only */}
+        {isAdminLoggedIn && (
+          <div className="flex justify-end mb-6 text-xs text-stone-500 font-medium space-x-2">
+            <span>{language === 'EN' ? "Simulation Options (Admin Audits):" : "సిమ్యులేషన్ ఆప్షన్స్:"}</span>
+            <button
+              type="button"
+              onClick={() => setSimulationError(!simulationError)}
+              className={`px-2 py-0.5 rounded transition ${simulationError ? 'bg-red-200 text-red-800 font-bold' : 'bg-stone-200 hover:bg-stone-300'}`}
+            >
+              {simulationError
+                ? (language === 'EN' ? "[ON] Force Calc Error" : "[ON] బలవంతపు లోపం")
+                : (language === 'EN' ? "[OFF] Force Calc Error" : "[OFF] బలవంతపు లోపం")}
+            </button>
+          </div>
+        )}
 
         {/* Main Card */}
         <div className="bg-white border border-amber-100 rounded-3xl shadow-xl overflow-hidden p-6 md:p-8">
@@ -376,9 +379,13 @@ export default function PanchangamSection({ language }: PanchangamSectionProps) 
                         <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block mb-1">
                           ✨ {language === 'EN' ? "Amritakalam" : "అమృతకాలం"}
                         </span>
-                        <h4 className="font-serif text-base font-extrabold text-stone-800">{details.amritakalam}</h4>
+                        <h4 className="font-serif text-base font-extrabold text-stone-800">
+                          {details.amritakalam || <span className="text-stone-400 font-sans text-xs font-normal">—</span>}
+                        </h4>
                         <p className="font-sans text-[10px] text-stone-400 mt-1">
-                          {language === 'EN' ? "Most auspicious time of the day for pujas and new beginnings" : "పూజలకు, శుభ కార్యాలకు అత్యంత అనుకూలమైన కాలం"}
+                          {details.amritakalam
+                            ? (language === 'EN' ? "Most auspicious time of the day for pujas and new beginnings" : "పూజలకు, శుభ కార్యాలకు అత్యంత అనుకూలమైన కాలం")
+                            : (language === 'EN' ? "Available with Prokerala live data — not calculated in self-calc mode" : "Prokerala డేటా ద్వారా అందుబాటులో ఉంటుంది")}
                         </p>
                       </div>
 

@@ -123,12 +123,53 @@ const DEFAULT_ANNOUNCEMENT: Announcement = {
 // Replaces two separate global_settings queries with one — saves 1 round trip
 // on every page load. Individual getters still work (they use the same cache).
 
-export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifetimeCounter: number; whatsappLink: string }> {
+const DEFAULT_OPEN_TIME = '6:00 AM';
+const DEFAULT_CLOSE_TIME = '8:30 PM';
+const DEFAULT_EVENT_IMAGE = 'https://images.unsplash.com/photo-1609137144814-7ebd5b40cfeb?auto=format&fit=crop&q=80&w=600';
+const DEFAULT_PROFILE_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200';
+const DEFAULT_PROFILE_FEMALE = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
+
+export async function getGlobalSettings(): Promise<{
+  templeEmblem: string;
+  lifetimeCounter: number;
+  whatsappLink: string;
+  templeOpenTime: string;
+  templeCloseTime: string;
+  templeOpenTime2: string;
+  templeCloseTime2: string;
+  defaultEventImage: string;
+  defaultProfileMale: string;
+  defaultProfileFemale: string;
+}> {
   const cachedEmblem = cacheGet<string>('emblem');
   const cachedLifetime = cacheGet<number>('lifetime');
   const cachedWa = cacheGet<string>('walink');
-  if (cachedEmblem !== null && cachedLifetime !== null && cachedWa !== null) {
-    return { templeEmblem: cachedEmblem, lifetimeCounter: cachedLifetime, whatsappLink: cachedWa };
+  const cachedOpenTime = cacheGet<string>('opentime');
+  const cachedCloseTime = cacheGet<string>('closetime');
+  const cachedOpenTime2 = cacheGet<string>('opentime2');
+  const cachedCloseTime2 = cacheGet<string>('closetime2');
+  const cachedDefEventImg = cacheGet<string>('defeventimg');
+  const cachedDefMale = cacheGet<string>('defmale');
+  const cachedDefFemale = cacheGet<string>('deffemale');
+
+  if (
+    cachedEmblem !== null && cachedLifetime !== null && cachedWa !== null &&
+    cachedOpenTime !== null && cachedCloseTime !== null &&
+    cachedOpenTime2 !== null && cachedCloseTime2 !== null &&
+    cachedDefEventImg !== null && cachedDefMale !== null && cachedDefFemale !== null
+  ) {
+    return {
+      templeEmblem: cachedEmblem,
+      lifetimeCounter: cachedLifetime,
+      whatsappLink: cachedWa,
+      templeOpenTime: cachedOpenTime,
+      templeCloseTime: cachedCloseTime,
+      templeOpenTime2: cachedOpenTime2,
+      templeCloseTime2: cachedCloseTime2,
+      defaultEventImage: cachedDefEventImg,
+      defaultProfileMale: cachedDefMale,
+      defaultProfileFemale: cachedDefFemale,
+    };
   }
 
   const { data, error } = await supabase.from('global_settings').select('key, value');
@@ -141,11 +182,77 @@ export async function getGlobalSettings(): Promise<{ templeEmblem: string; lifet
   const templeEmblem = map['primary_temple_emblem'] || DEFAULT_EMBLEM_URL;
   const lifetimeCounter = Number(map['lifetime_counter']) || 2852500;
   const whatsappLink = map['whatsapp_link'] || '';
+  const templeOpenTime = map['temple_open_time'] || DEFAULT_OPEN_TIME;
+  const templeCloseTime = map['temple_close_time'] || DEFAULT_CLOSE_TIME;
+  const templeOpenTime2 = map['temple_open_time_2'] || '';
+  const templeCloseTime2 = map['temple_close_time_2'] || '';
+  const defaultEventImage = map['default_event_image'] || DEFAULT_EVENT_IMAGE;
+  const defaultProfileMale = map['default_profile_male'] || DEFAULT_PROFILE_MALE;
+  const defaultProfileFemale = map['default_profile_female'] || DEFAULT_PROFILE_FEMALE;
 
   cacheSet('emblem', templeEmblem, TTL.long);
   cacheSet('lifetime', lifetimeCounter, TTL.short);
   cacheSet('walink', whatsappLink, TTL.long);
-  return { templeEmblem, lifetimeCounter, whatsappLink };
+  cacheSet('opentime', templeOpenTime, TTL.long);
+  cacheSet('closetime', templeCloseTime, TTL.long);
+  cacheSet('opentime2', templeOpenTime2, TTL.long);
+  cacheSet('closetime2', templeCloseTime2, TTL.long);
+  cacheSet('defeventimg', defaultEventImage, TTL.long);
+  cacheSet('defmale', defaultProfileMale, TTL.long);
+  cacheSet('deffemale', defaultProfileFemale, TTL.long);
+
+  return { templeEmblem, lifetimeCounter, whatsappLink, templeOpenTime, templeCloseTime, templeOpenTime2, templeCloseTime2, defaultEventImage, defaultProfileMale, defaultProfileFemale };
+}
+
+export async function saveTempleHours(openTime: string, closeTime: string): Promise<void> {
+  await supabase.from('global_settings').upsert([
+    { key: 'temple_open_time', value: openTime, updated_at: new Date().toISOString() },
+    { key: 'temple_close_time', value: closeTime, updated_at: new Date().toISOString() },
+  ], { onConflict: 'key' });
+  cacheBust('opentime');
+  cacheBust('closetime');
+  addLog(`Temple daily darshan timings updated: Open ${openTime} — Close ${closeTime}`, 'edit');
+}
+
+export async function saveTempleHours2(openTime2: string, closeTime2: string): Promise<void> {
+  await supabase.from('global_settings').upsert([
+    { key: 'temple_open_time_2', value: openTime2, updated_at: new Date().toISOString() },
+    { key: 'temple_close_time_2', value: closeTime2, updated_at: new Date().toISOString() },
+  ], { onConflict: 'key' });
+  cacheBust('opentime2');
+  cacheBust('closetime2');
+  if (openTime2 && closeTime2) {
+    addLog(`Afternoon session added: ${openTime2} — ${closeTime2}`, 'edit');
+  } else {
+    addLog('Afternoon session removed — single-slot darshan timings restored.', 'edit');
+  }
+}
+
+export async function saveDefaultEventImage(url: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('global_settings')
+    .select('value')
+    .eq('key', 'default_event_image')
+    .single();
+  if (existing?.value && isStorageUrl(existing.value) && existing.value !== url) {
+    await deleteFromStorage(existing.value);
+  }
+  await supabase.from('global_settings').upsert(
+    { key: 'default_event_image', value: url, updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+  cacheBust('defeventimg');
+  addLog('Default temple event fallback image updated by admin.', 'edit');
+}
+
+export async function saveDefaultProfileIcons(maleUrl: string, femaleUrl: string): Promise<void> {
+  await supabase.from('global_settings').upsert([
+    { key: 'default_profile_male', value: maleUrl, updated_at: new Date().toISOString() },
+    { key: 'default_profile_female', value: femaleUrl, updated_at: new Date().toISOString() },
+  ], { onConflict: 'key' });
+  cacheBust('defmale');
+  cacheBust('deffemale');
+  addLog('Default profile icons (male/female) updated by admin.', 'edit');
 }
 
 // ─── Temple Emblem ────────────────────────────────────────────────────────────
@@ -676,21 +783,16 @@ export interface PanchangamCacheEntry {
 export async function getPanchangamCacheEntry(date: string): Promise<PanchangamCacheEntry | null> {
   const { data, error } = await supabase
     .from('panchangam_cache')
-    .select('date, data, is_manual_override, cached_at')
+    .select('date, data, is_manual_override, source, cached_at')
     .eq('date', date)
     .maybeSingle();
   if (error || !data) return null;
-  const raw = data.data as Record<string, unknown>;
-  const source: PanchangamCacheEntry['source'] =
-    data.is_manual_override ? 'manual'
-    : raw?._source === 'self-calc' ? 'self-calc'
-    : 'prokerala';
   return {
     date: data.date,
-    data: raw as unknown as PanchangamDetails,
+    data: data.data as unknown as PanchangamDetails,
     isManualOverride: data.is_manual_override,
     cachedAt: data.cached_at,
-    source,
+    source: (data.source ?? 'prokerala') as PanchangamCacheEntry['source'],
   };
 }
 
@@ -698,7 +800,7 @@ export async function savePanchangamOverride(date: string, panchangam: Panchanga
   await supabase
     .from('panchangam_cache')
     .upsert(
-      { date, data: panchangam, is_manual_override: true, cached_at: new Date().toISOString() },
+      { date, data: panchangam, is_manual_override: true, source: 'manual', cached_at: new Date().toISOString() },
       { onConflict: 'date' }
     );
   await addLog(`Panchangam manually overridden for ${date} by admin.`, 'edit');
@@ -719,6 +821,16 @@ export async function runMidnightJanitorSimulation(): Promise<{
 }> {
   const { error } = await supabase.rpc('execute_midnight_janitor_sweeps');
   if (error) throw error;
+
+  // Delete auto-cached panchangam rows older than 5 months (manual overrides are kept)
+  const fiveMonthsAgo = new Date();
+  fiveMonthsAgo.setMonth(fiveMonthsAgo.getMonth() - 5);
+  await supabase
+    .from('panchangam_cache')
+    .delete()
+    .eq('is_manual_override', false)
+    .lt('cached_at', fiveMonthsAgo.toISOString());
+
   // Janitor modifies events, donors, lifetime counter — bust all affected caches
   cacheBust('events');
   cacheBust('donors');

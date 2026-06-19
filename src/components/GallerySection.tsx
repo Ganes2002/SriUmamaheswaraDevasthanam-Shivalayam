@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TRANSLATIONS, Language } from '../translations';
 import { GalleryItem } from '../types';
-import { Eye, Film, Play, Image as ImageIcon, Video, X, Download } from 'lucide-react';
+import { Eye, Film, Play, Image as ImageIcon, Video, X, Download, Share2 } from 'lucide-react';
 
 interface GallerySectionProps {
   language: Language;
@@ -14,6 +14,20 @@ export default function GallerySection({ language, galleryList }: GallerySection
   // title = display label (EN or TE), titleEN = always English for safe download filename
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; title: string; titleEN: string } | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleWhatsAppSharePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedPhoto) return;
+    const msg = [
+      `🙏 *శ్రీ ఉమా మహేశ్వర దేవస్థానం*`,
+      ``,
+      `📸 *${selectedPhoto.title}*`,
+      ``,
+      `🌸 ${language === 'EN' ? 'View our divine temple gallery:' : 'మా ఆలయ దివ్య గ్యాలరీ చూడండి:'}`,
+      `🔗 ${window.location.href}`,
+    ].join('\n');
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+  };
 
   const handleDownloadPhoto = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -136,11 +150,11 @@ export default function GallerySection({ language, galleryList }: GallerySection
                 const thumbUrl = `https://img.youtube.com/vi/${yId}/hqdefault.jpg`;
                 
                 return (
-                  <div 
+                  <div
                     key={item.id}
                     id={`gallery-${item.id}`}
                     onClick={() => setSelectedVideoId(yId)}
-                    className="relative cursor-pointer bg-stone-900 aspect-video rounded-2xl overflow-hidden group border border-stone-800 shadow-md hover:shadow-xl transition-all"
+                    className="relative cursor-pointer bg-stone-900 aspect-square rounded-2xl overflow-hidden group border border-stone-800 shadow-md hover:shadow-xl transition-all"
                     title="Click to stream video"
                   >
                     {/* YouTube Thumbnail Background with Lazy Ref Referrer */}
@@ -250,6 +264,18 @@ export default function GallerySection({ language, galleryList }: GallerySection
           >
             {/* Action buttons — top-right corner */}
             <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              {/* WhatsApp share button */}
+              <button
+                onClick={handleWhatsAppSharePhoto}
+                title={language === 'EN' ? 'Share on WhatsApp' : 'WhatsApp లో షేర్ చేయి'}
+                className="rounded-full p-2 text-white shadow-lg transition-all cursor-pointer flex items-center gap-1.5 px-3"
+                style={{ background: '#25D366' }}
+              >
+                <Share2 size={15} strokeWidth={2.5} />
+                <span className="text-[11px] font-bold hidden sm:inline">
+                  {language === 'EN' ? 'Share' : 'షేర్'}
+                </span>
+              </button>
               {/* Download button */}
               <button
                 onClick={handleDownloadPhoto}
